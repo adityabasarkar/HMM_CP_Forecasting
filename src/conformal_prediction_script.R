@@ -17,7 +17,7 @@ for (u in 1:200) {
   print(acc)
 }
 
-
+start <- Sys.time()
 acc <- test_cpp(num_trials = 50,
                 calib_len  = 30,
                 test_len   = 4,
@@ -26,7 +26,21 @@ acc <- test_cpp(num_trials = 50,
                 b          = 0.8,
                 k          = 2,
                 m          = 2)
+end <- Sys.time()
 print(acc)
+time_taken = end - start
+print(time_taken)
+
+# Experiments
+
+# > end <- Sys.time()
+# > print(acc)
+# [1] 0.66
+# > time_taken = end - start
+# > print(time_taken)
+# Time difference of 21.40689 mins
+
+
 
 p <- 0.3
 b <- 0.75

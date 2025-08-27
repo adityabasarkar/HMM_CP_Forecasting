@@ -464,6 +464,7 @@ double test_cpp(int num_trials,
       if (equal) found = true;
     }
     if (found) ++num_correct;
+    Rprintf("TRIAL NUM: %d\n", u);
   }
   
   return static_cast<double>(num_correct) / static_cast<double>(num_trials);
