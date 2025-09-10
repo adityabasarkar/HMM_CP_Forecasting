@@ -2,6 +2,12 @@
 #include <RcppDist.h>
 #include <iostream>
 #include <algorithm>
+#include <vector>
+#include <utility>
+#include <functional>
+#include <unordered_set>
+#include <random>
+
 // [[Rcpp::depends(RcppArmadillo, RcppDist)]]
 
 // #include <omp.h>
@@ -143,6 +149,7 @@ Rcpp::List ij_blocks(const Rcpp::List& sequence) {
   return blocks;
 }
 
+/*
 std::vector<std::vector<int>> k_permutations(std::vector<int> nums, int k) {
   std::vector<std::vector<int>> result;
   if (k < 0 || k > (int)nums.size()) return result;
@@ -174,6 +181,130 @@ std::vector<std::vector<int>> k_permutations(std::vector<int> nums, int k) {
   
   dfs();
   return result;
+}
+*/
+
+// New addition
+
+struct VecHash {
+  std::size_t operator()(const std::vector<int>& v) const noexcept {
+    std::size_t h = 1469598103934665603ull; // FNV-1a 64-bit base
+    for (int x : v) {
+      std::size_t y = static_cast<std::size_t>(x) ^ (static_cast<std::size_t>(x) << 32);
+      h ^= y;
+      h *= 1099511628211ull;
+    }
+    return h;
+  }
+};
+struct VecEq {
+  bool operator()(const std::vector<int>& a, const std::vector<int>& b) const noexcept {
+    return a == b;
+  }
+};
+static void enumerate_unique_k_perms_by_value(const std::vector<int>& nums, int k,
+                                              std::vector<std::vector<int>>& out) {
+  // Pair values with original indices, sort by value to enable duplicate skipping
+  std::vector<std::pair<int,int>> a;
+  a.reserve(nums.size());
+  for (int i = 0; i < (int)nums.size(); ++i) a.emplace_back(nums[i], i);
+  std::sort(a.begin(), a.end(), [](auto& x, auto& y){ return x.first < y.first; });
+  std::vector<int> cur; cur.reserve(k);
+  std::vector<char> used(a.size(), 0);
+  std::function<void()> dfs = [&]() {
+    if ((int)cur.size() == k) { out.push_back(cur); return; }
+    for (int i = 0; i < (int)a.size(); ++i) {
+      if (used[i]) continue;
+      // Skip duplicates: if same value as previous and previous not used at this depth
+      if (i > 0 && a[i].first == a[i-1].first && !used[i-1]) continue;
+      used[i] = 1;
+      cur.push_back(a[i].first);
+      dfs();
+      cur.pop_back();
+      used[i] = 0;
+    }
+  };
+  dfs();
+}
+
+// [[Rcpp::export]]
+std::vector<std::vector<int>> k_permutations(std::vector<int> nums, int k) {
+  
+  const std::size_t LIMIT = 10000;
+  const std::size_t LIMIT2 = LIMIT * 2;
+  
+  std::vector<std::vector<int>> result;
+  int n = static_cast<int>(nums.size());
+  
+  if (k < 0 || k > n) return result;
+  if (k == 0) { result.push_back({}); return result; }
+  
+  // --- Compare nPk = n*(n-1)*...*(n-k+1) against LIMIT and LIMIT2; early-stop once exceeding LIMIT2.
+  unsigned long long prod = 1;
+  unsigned long long threshold = LIMIT2;
+  bool gt_LIMIT = false;
+  bool gt_LIMIT2 = false;
+  for (int x = n - k + 1; x <= n; ++x) {
+    if (prod > threshold / (unsigned long long)std::max(1, x)) {
+      // Exceeded LIMIT2 by multiplication
+      gt_LIMIT2 = true;
+      gt_LIMIT = true; // if > LIMIT2 then > LIMIT as well
+      break;
+    }
+    prod *= (unsigned long long)x;
+    if (!gt_LIMIT && prod > LIMIT) gt_LIMIT = true;
+    if (prod > LIMIT2) { gt_LIMIT2 = true; break; }
+  }
+  
+  // PRNG
+  std::mt19937 rng(std::random_device{}());
+  
+  if (!gt_LIMIT) {
+    // Case 1: nPk <= LIMIT -> enumerate all unique and return all
+    enumerate_unique_k_perms_by_value(nums, k, result);
+    return result;
+  }
+  
+  if (!gt_LIMIT2) {
+    // Case 2: LIMIT < nPk <= 2*LIMIT -> enumerate all, then sample 100k (or all if fewer)
+    enumerate_unique_k_perms_by_value(nums, k, result);
+    // Uniform downsample without replacement to exactly LIMIT (or size if smaller)
+    std::size_t want = std::min<std::size_t>(LIMIT, result.size());
+    
+    if (result.size() > want) {
+      std::shuffle(result.begin(), result.end(), rng);
+      result.resize(want);
+    }
+    return result;
+    
+  }
+  // Case 3: nPk > 2*LIMIT -> direct random sampling up to LIMIT unique sequences
+  std::unordered_set<std::vector<int>, VecHash, VecEq> uniq;
+  uniq.reserve(LIMIT * 2);
+  
+  // Sample permutations of indices without replacement, then map to values (order matters)
+  const std::size_t MAX_ATTEMPTS = LIMIT * 20; // safety for small unique-by-value spaces
+  std::size_t attempts = 0;
+  
+  while (uniq.size() < LIMIT && attempts < MAX_ATTEMPTS) {
+    ++attempts;
+    std::vector<int> idx(n);
+    for (int i = 0; i < n; ++i) idx[i] = i;
+    // Partial Fisher–Yates: pick first k positions
+    for (int i = 0; i < k; ++i) {
+      std::uniform_int_distribution<int> dist(i, n - 1);
+      int j = dist(rng);
+      std::swap(idx[i], idx[j]);
+    }
+    std::vector<int> v; v.reserve(k);
+    for (int i = 0; i < k; ++i) v.push_back(nums[idx[i]]);
+    uniq.insert(std::move(v));
+  }
+  
+  result.reserve(uniq.size());
+  for (auto &v : uniq) result.push_back(v);
+  return result;
+  
 }
 
 // [[Rcpp::export]]
@@ -399,6 +530,86 @@ Rcpp::List get_cp_set(const Rcpp::List& sequence,
   return cp_set;
 }
 
+// [[Rcpp::export]]
+Rcpp::List get_cp_p_val(const Rcpp::List& sequence,
+                      const Rcpp::IntegerVector& test_observations,
+                      int k, int m, double alpha) {
+  const int n = sequence.size();
+  const int L = test_observations.size();
+  if (L <= 0) Rcpp::stop("test_observations must have positive length.");
+  if (k <= 0 || m <= 0) Rcpp::stop("k and m must be positive.");
+  if (n == 0) Rcpp::stop("sequence must be non-empty.");
+  
+  Rcpp::List cp_set;                  // output: list of length k^L (potentially huge)
+  
+  // Candidate state vector (odometer over base-k with L digits)
+  std::vector<int> state(L, 0);
+  bool done = false;
+  
+  while (!done) {
+    // ---- Build augmented sequence: sequence + zip(state, test_observations) ----
+    Rcpp::List augmented(n + L);
+    for (int i = 0; i < n; ++i) augmented[i] = sequence[i];
+    for (int i = 0; i < L; ++i) {
+      int s = state[i];
+      int o = test_observations[i];
+      if (s < 0 || s >= k) Rcpp::stop("State out of range in candidate.");
+      if (o < 0 || o >= m) Rcpp::stop("Observation out of range in test_observations.");
+      augmented[n + i] = Rcpp::IntegerVector::create(s, o);
+    }
+    
+    // ---- Estimate P and B from augmented sequence ----
+    arma::mat P_hat  = estimate_transition_probabilities(augmented, k);
+    arma::mat B_hat  = estimate_observation_probabilities(augmented, k, m);
+    
+    // ---- Build permuted lists and compute conformity scores ----
+    Rcpp::List blocks        = ij_blocks(augmented);
+    Rcpp::List permuted_lists = create_permutes(blocks, L);
+    
+    const int M = permuted_lists.size();
+    if (M <= 0) {
+      // No permutations produced (shouldn't happen with your create_permutes).
+      cp_set.push_back(R_NilValue);
+    } else {
+      // score(lst) = 1 - avg_prob; avg_prob uses hmm_filter_subroutine_sum(P,B,L,lst)
+      auto score_of = [&](const Rcpp::List& lst) -> double {
+        double s = hmm_filter_subroutine_sum(P_hat, B_hat, L, lst); // sum over L steps
+        return 1.0 - (s / static_cast<double>(L));
+      };
+      
+      // Baseline is the first score (conformity_scores[0])
+      double baseline = score_of(Rcpp::List(permuted_lists[0]));
+      int ge_count = 0;
+      for (int i = 0; i < M; ++i) {
+        double sc = score_of(Rcpp::List(permuted_lists[i]));
+        if (sc >= baseline) ++ge_count;
+      }
+      double q = static_cast<double>(ge_count) / static_cast<double>(M);
+      
+      if (q > alpha) {
+        // Keep this candidate: return as IntegerVector
+        Rcpp::IntegerVector keep(L);
+        for (int i = 0; i < L; ++i) keep[i] = state[i];
+        cp_set.push_back(keep);
+      } else {
+        // Discard: push NULL to mirror Python's None
+        cp_set.push_back(R_NilValue);
+      }
+    }
+    
+    // ---- Increment odometer in base-k over L positions ----
+    int pos = L - 1;
+    while (pos >= 0) {
+      state[pos] += 1;
+      if (state[pos] < k) break;  // no carry needed
+      state[pos] = 0;             // carry
+      --pos;
+    }
+    if (pos < 0) done = true;     // overflow -> finished all k^L candidates
+  }
+  
+  return cp_set;
+}
 
 // [[Rcpp::export]]
 double test_cpp(int num_trials,
