@@ -82,9 +82,70 @@ test <- function(num_trials,
   as.numeric(num_correct) / as.numeric(num_trials)
 }
 
+# faster testing function
+test2 <- function(num_trials,
+                 calib_len,
+                 test_len,
+                 alpha,
+                 p,
+                 b,
+                 k,
+                 m) {
+  # ---- basic checks (mirroring test_cpp) ----
+  if (num_trials <= 0) stop("num_trials must be > 0.")
+  if (calib_len < 0 || test_len <= 0) stop("calib_len >= 0 and test_len > 0 required.")
+  if (k != 2 || m != 2) {
+    stop("This test implementation assumes k = 2 and m = 2 (binary HMM), like the C++.")
+  }
+  if (p < 0 || p > 1 || b < 0 || b > 1) {
+    stop("p and b must be in [0,1].")
+  }
+  
+  # ---- HMM params (binary), same as C++ ----
+  pi <- c(0.5, 0.5)
+  P  <- matrix(c(p, 1 - p,
+                 1 - p, p), nrow = 2, byrow = TRUE)
+  B  <- matrix(c(b, 1 - b,
+                 1 - b, b), nrow = 2, byrow = TRUE)
+  
+  num_correct <- 0L
+  
+  for (u in seq_len(num_trials) - 1L) {
+    # mimic occasional responsiveness; user can interrupt the loop anyway
+    if ((u %% 128L) == 0L) utils::flush.console()
+    
+    sequence_length <- calib_len + test_len
+    
+    # simulate full sequence: list of length N of (state, obs) integer pairs
+    sequence_data <- generate_hmm_sequence_list(sequence_length, pi, P, B)
+    
+    # calibration split (empty list if calib_len == 0, as in C++)
+    calib_data <-
+      if (calib_len > 0L) sequence_data[seq_len(calib_len)] else list()
+    
+    # test window: ground-truth states ("actual") and observations
+    test_data <-
+      if (calib_len < sequence_length) sequence_data[(calib_len + 1):sequence_length] else list()
+    
+    # conformal prediction set for the test observations
+    quantile <- get_cp_p_val(calib_data, test_data, k, m, alpha)
+    
+    # membership test: is `actual` present in cp_set?
+    found <- FALSE
+    if (quantile > alpha) {
+      found <- TRUE
+    }
+    if (found) num_correct <- num_correct + 1L
+    
+    # match the C++ printing behavior (zero-based trial index)
+    cat(sprintf("TRIAL NUM: %d\n", u))
+  }
+  
+  as.numeric(num_correct) / as.numeric(num_trials)
+}
 
 # test script
-score <- test(100, 100, 3, 0.2, 0.4, 0.3, 2, 2)
+score <- test2(200, 100, 3, 0.2, 0.4, 0.3, 2, 2)
 print(score)
 
 # 0.8
