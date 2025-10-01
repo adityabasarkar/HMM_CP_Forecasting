@@ -1,4 +1,3 @@
-
 #include <RcppDist.h>
 #include <iostream>
 #include <algorithm>
@@ -16,9 +15,9 @@
 // [[Rcpp::export]]
 
 Rcpp::List generate_hmm_sequence_list(int n,
-                                const arma::vec& pi,
-                                const arma::mat& P,
-                                const arma::mat& B) {
+                                      const arma::vec& pi,
+                                      const arma::mat& P,
+                                      const arma::mat& B) {
   // prepare storage of (state,obs) pairs
   std::vector< std::pair<arma::uword,arma::uword> > seq;
   seq.reserve(n);
@@ -126,10 +125,10 @@ Rcpp::List ij_blocks(const Rcpp::List& sequence) {
   int n = sequence.size();
   Rcpp::List blocks;                    // outer list: blocks
   if (n == 0) return blocks;            // empty input => empty output
-
+  
   SEXP ij_tuple = sequence[n - 1];      // last tuple
   Rcpp::List current_block;             // inner list: accumulating tuples
-
+  
   for (int i = 0; i < n; ++i) {
     if (i == 0) {
       current_block.push_back(sequence[i]);
@@ -143,46 +142,46 @@ Rcpp::List ij_blocks(const Rcpp::List& sequence) {
       }
     }
   }
-
+  
   // append the final block
   blocks.push_back(current_block);
   return blocks;
 }
 
 /*
-std::vector<std::vector<int>> k_permutations(std::vector<int> nums, int k) {
-  std::vector<std::vector<int>> result;
-  if (k < 0 || k > (int)nums.size()) return result;
-  if (k == 0) { result.push_back({}); return result; }
-  
-  // Pair values with original indices, then sort by value to handle duplicates
-  std::vector<std::pair<int,int>> a;
-  a.reserve(nums.size());
-  for (int i = 0; i < (int)nums.size(); ++i) a.emplace_back(nums[i], i);
-  std::sort(a.begin(), a.end(), [](auto& x, auto& y){ return x.first < y.first; });
-  
-  std::vector<int> cur; cur.reserve(k);
-  std::vector<char> used(a.size(), 0);
-  
-  std::function<void()> dfs = [&]() {
-    if ((int)cur.size() == k) { result.push_back(cur); return; }
-    for (int i = 0; i < (int)a.size(); ++i) {
-      if (used[i]) continue;
-      // Skip duplicates: if same value as previous and previous not used in this level
-      if (i > 0 && a[i].first == a[i-1].first && !used[i-1]) continue;
-      
-      used[i] = 1;
-      cur.push_back(a[i].first);
-      dfs();
-      cur.pop_back();
-      used[i] = 0;
-    }
-  };
-  
-  dfs();
-  return result;
-}
-*/
+ std::vector<std::vector<int>> k_permutations(std::vector<int> nums, int k) {
+ std::vector<std::vector<int>> result;
+ if (k < 0 || k > (int)nums.size()) return result;
+ if (k == 0) { result.push_back({}); return result; }
+ 
+ // Pair values with original indices, then sort by value to handle duplicates
+ std::vector<std::pair<int,int>> a;
+ a.reserve(nums.size());
+ for (int i = 0; i < (int)nums.size(); ++i) a.emplace_back(nums[i], i);
+ std::sort(a.begin(), a.end(), [](auto& x, auto& y){ return x.first < y.first; });
+ 
+ std::vector<int> cur; cur.reserve(k);
+ std::vector<char> used(a.size(), 0);
+ 
+ std::function<void()> dfs = [&]() {
+ if ((int)cur.size() == k) { result.push_back(cur); return; }
+ for (int i = 0; i < (int)a.size(); ++i) {
+ if (used[i]) continue;
+ // Skip duplicates: if same value as previous and previous not used in this level
+ if (i > 0 && a[i].first == a[i-1].first && !used[i-1]) continue;
+ 
+ used[i] = 1;
+ cur.push_back(a[i].first);
+ dfs();
+ cur.pop_back();
+ used[i] = 0;
+ }
+ };
+ 
+ dfs();
+ return result;
+ }
+ */
 
 // New addition
 
@@ -355,10 +354,10 @@ Rcpp::List create_permutes(const Rcpp::List& blocks, int test_len) {
 
 // [[Rcpp::export]]
 double hmm_filter_subroutine_sum(
-  const arma::mat& P,
-  const arma::mat& B,
-  int test_len,
-  const Rcpp::List& sequence) 
+    const arma::mat& P,
+    const arma::mat& B,
+    int test_len,
+    const Rcpp::List& sequence) 
 {
   
   const int n = sequence.size();
@@ -407,43 +406,37 @@ double hmm_filter_subroutine_sum(
   
   // ---- iterate i = start_idx .. n-2 (length == test_len) ----
   const arma::mat Pt = P.t();
-  const double eps = 1e-12;
   
   for (int i = start_idx; i <= n - 2; ++i) {
-    Rcpp::IntegerVector pair_i = sequence[i];
-    if (pair_i.size() != 2) {
-      Rcpp::stop("sequence[%d] is not a 2-element tuple.", i + 1);
-    }
-    int obs = pair_i[1];
-    if (obs < 0 || obs >= (int)B.n_cols) {
+    // take NEXT observation (y_{i+1})
+    Rcpp::IntegerVector pair_ip1 = sequence[i + 1];
+    if (pair_ip1.size() != 2) Rcpp::stop("sequence[%d] is not a 2-element tuple.", i + 2);
+    int obs_next = pair_ip1[1];
+    if (obs_next < 0 || obs_next >= (int)B.n_cols) {
       Rcpp::stop("Observation index out of bounds at %d: %d (m=%d).",
-                 i + 1, obs, (int)B.n_cols);
+                 i + 2, obs_next, (int)B.n_cols);
     }
     
-    // temp = diag(B[, obs]) * (P^T * prev)  --> elementwise multiply
-    const arma::vec& prev = prob_vecs.back();
-    arma::vec temp = B.col(obs) % (Pt * prev);
+    const arma::vec& prev = prob_vecs.back();         // p_i
+    arma::vec temp = B.col(obs_next) % (Pt * prev);   // diag(B_{y_{i+1}}) * P^T * p_i
     
-    // stabilize and normalize
-    temp += eps;
+    // stabilize & normalize
     double s = arma::accu(temp);
-    if (s <= 0.0) {
-      Rcpp::stop("Normalization failed (sum<=0) at step %d.", i - start_idx + 1);
-    }
+    if (s <= 0.0) Rcpp::stop("Normalization failed (sum<=0) at step %d.", i - start_idx + 1);
     temp /= s;
     
-    prob_vecs.push_back(std::move(temp));
+    prob_vecs.push_back(std::move(temp));             // this is p_{i+1}
   }
   
-  // ---- sum over i=0..test_len-1 of prob_vecs[i+1][ true_state_at(start_idx+i) ] ----
+  // sum over i = 0..test_len-1 of p_{start+i+1}( x_{start+i+1} )
   double return_sum = 0.0;
   for (int i = 0; i < test_len; ++i) {
-    Rcpp::IntegerVector pair_i = sequence[start_idx + i];
-    int st = pair_i[0];
-    if (st < 0 || st >= k) {
-      Rcpp::stop("State index out of bounds at %d: %d (k=%d).", start_idx + i + 1, st, k);
+    Rcpp::IntegerVector pair_ip1 = sequence[start_idx + i + 1];
+    int st_next = pair_ip1[0];
+    if (st_next < 0 || st_next >= k) {
+      Rcpp::stop("State index out of bounds at %d: %d (k=%d).", start_idx + i + 2, st_next, k);
     }
-    return_sum += prob_vecs[i + 1](st);
+    return_sum += prob_vecs[i + 1](st_next);
   }
   
   return return_sum;
@@ -532,8 +525,8 @@ Rcpp::List get_cp_set(const Rcpp::List& sequence,
 
 // [[Rcpp::export]]
 float get_cp_p_val(const Rcpp::List& sequence,
-                      const Rcpp::List& test_sequence,
-                      int k, int m, double alpha) {
+                   const Rcpp::List& test_sequence,
+                   int k, int m, double alpha) {
   const int n = sequence.size();
   const int L = test_sequence.size();
   if (L <= 0) Rcpp::stop("test_observations must have positive length.");
@@ -562,25 +555,37 @@ float get_cp_p_val(const Rcpp::List& sequence,
   
   const int M = permuted_lists.size();
   if (M <= 0) {
-    // No permutations produced (shouldn't happen with your create_permutes).
     return 0.0;
   } else {
-    // score(lst) = 1 - avg_prob; avg_prob uses hmm_filter_subroutine_sum(P,B,L,lst)
     auto score_of = [&](const Rcpp::List& lst) -> double {
-      double s = hmm_filter_subroutine_sum(P_hat, B_hat, L, lst); // sum over L steps
+      double s = hmm_filter_subroutine_sum(P_hat, B_hat, L, lst);
       return 1.0 - (s / static_cast<double>(L));
     };
     
-    // Baseline is the first score (conformity_scores[0])
-    double baseline = score_of(Rcpp::List(permuted_lists[0]));
-    int ge_count = 0;
-    for (int i = 0; i < M; ++i) {
-      double sc = score_of(Rcpp::List(permuted_lists[i]));
-      if (sc >= baseline) ++ge_count;
-    }
-    double q = static_cast<double>(ge_count) / static_cast<double>(M);
+    const double baseline = score_of(Rcpp::List(permuted_lists[0]));
     
-    return q;
+    // Count strict-greater and equals (with tolerance)
+    const double eps = 1e-12;
+    int n_gt = 0;
+    int n_eq = 0;
+    
+    for (int i = 0; i < M; ++i) {
+      const double sc = score_of(Rcpp::List(permuted_lists[i]));
+      if (sc > baseline + eps) {
+        ++n_gt;
+      } else if (std::abs(sc - baseline) <= eps) {
+        ++n_eq; // includes the baseline itself when i == 0
+      }
+    }
+    
+    // Uniform(0,1) for randomized tie-breaking
+    const double u = R::runif(0.0, 1.0);
+    
+    // Smoothed p-value (exact under exchangeability)
+    const double p = (static_cast<double>(n_gt) + u * static_cast<double>(n_eq))
+      / static_cast<double>(M);
+    
+    return p;
   }
 }
 

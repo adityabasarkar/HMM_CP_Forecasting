@@ -145,7 +145,7 @@ test2 <- function(num_trials,
 }
 
 # test script
-score <- test2(200, 100, 3, 0.2, 0.4, 0.3, 2, 2)
+score <- test2(2000, 50, 3, 0.2, 0.4, 0.3, 2, 2)
 print(score)
 
 # 0.8
@@ -156,12 +156,16 @@ print(score)
 p <- 0.3
 b <- 0.75
 pi <- c(0.5, 0.5)
-P  <- matrix(c(p, 1-p,
-               1-p, p), nrow = 2, byrow = TRUE)
-B  <- matrix(c(1, 0,
-               0, 1), nrow = 2, byrow = TRUE)
+P  <- matrix(c(0.9, 0.1, 0, 0,
+               0.1, 0.9, 0, 0,
+               0, 0, 0, 0,
+               0, 0, 0, 0), nrow = 4, byrow = TRUE)
+B  <- matrix(c(0.7, 0.3,
+               0.4, 0.6,
+               0.5, 0.5,
+               0.2, 0.8), nrow = 4, byrow = TRUE)
 alpha <- 0.2
-k <- 2
+k <- 4
 m <- 2
 
 calib_len <- 100
