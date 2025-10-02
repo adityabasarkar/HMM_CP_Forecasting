@@ -7,6 +7,7 @@ library(RcppArmadillo, quietly = T)
 library(RcppDist, quietly = T)
 library(future.apply)
 library(ggplot2)
+library(forcats)
 sourceCpp("hmm_conformal_prediction.cpp")
 
 
@@ -17,7 +18,7 @@ plot(my_data[my_data[,'country_id']==70, 'ged_target'])
 print(my_data["month_id"])
 
 ##################################################
-# Code To Add "State" Variable
+# Data preprocessing steps
 ##################################################
 df_full <- my_data %>%
   complete(month_id = unique(month_id), country_id,
@@ -43,10 +44,6 @@ df_states <- df_full %>%
   ungroup() %>%
   arrange(country_id, month_id)
 
-##################################################
-# Code To Subset data
-##################################################
-
 cp_subset_data <- function(cid, start_row, num_rows) {
   df_states %>%
     filter(country_id == cid) %>%        # equality test
@@ -56,19 +53,12 @@ cp_subset_data <- function(cid, start_row, num_rows) {
     select(state, casualties)
 }
 
-subset_data <- cp_subset_data(83, 0, 400)
-
 cp_subset_data_country <- function(cid) {
   df_states %>%
     filter(country_id == cid) %>%        # equality test
     ungroup() %>%
     select(state, casualties)
 }
-
-##################################################
-# Code To convert data within dataframes 
-# to list of integer pairs
-##################################################
 
 df_to_pair_list_hidden_markov <- function(df, state_col = "state", obs_col = "casualties", state_zero_index = FALSE, obs_zero_index = TRUE) {
   st <- as.integer(df[[state_col]])
@@ -90,8 +80,6 @@ df_to_pair_list_markov <- function(df, state_col = "state", state_zero_index = F
   }
   lapply(seq_len(nrow(df)), function(i) c(st[i], st[i]))  # integer length-2 vectors
 }
-
-lst <- df_to_pair_list_markov(subset_data)
 
 ##################################################
 # Random sampling simulation across multiple
@@ -167,23 +155,11 @@ for (i in 1:(length(current_pair_list) - (test_len + train_len) + 1)) {
 proportion_accepts <- accepts / tests
 proportion_accepts
 
-
-unique(df_states$country_id)
-unique(lst$Value)
-
 ##################################################
 # Random sampling simulation across multiple
-# countries
+# countries + building alpha vs empirical coverage
+# graph
 ##################################################
-
-get_states <- function(pairs_list) vapply(pairs_list, function(v) v[[1]], integer(1))
-get_obs    <- function(pairs_list) vapply(pairs_list, function(v) v[[2]], integer(1))
-
-infer_k_m <- function(pairs_list) {
-  st <- get_states(pairs_list)
-  ob <- get_obs(pairs_list)
-  list(k = max(st) + 1L, m = max(ob) + 1L)
-}
 
 # Build pairs list for a given country ID (Markov version as in your code)
 pair_list_for_cid <- function(cid) {
@@ -330,8 +306,215 @@ ggplot(coverage_df, aes(x = alpha, y = coverage, group = test_len)) +
 
 out_dir <- "outputs/coverage_runs"
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
-
 saveRDS(results, file.path(out_dir, "results_list.rds"))
+
+##################################################
+# Code to display states in selected country
+##################################################
+
+plot_country_states <- function(cid) {
+  df_states %>%
+    filter(country_id == cid) %>%
+    count(state) %>%
+    mutate(state = factor(state,
+                          levels = 1:4,
+                          labels = c("Peaceful", "Escalation", "War", "De-escalation"))) %>%
+    ggplot(aes(x = "", y = n, fill = state)) +
+    geom_bar(stat = "identity", width = 0.6) +
+    coord_flip() +
+    scale_fill_manual(
+      values = c(
+        "Peaceful"     = "#a6cee3",
+        "Escalation"   = "#ff7f00",
+        "War"          = "#e31a1c",
+        "De-escalation"= "#33a02c"
+      )
+    ) +
+    labs(
+      title = paste("State distribution for country", cid),
+      x = NULL, y = "Count"
+    ) +
+    theme_minimal(base_size = 12) +
+    theme(legend.position = "bottom")
+}
+
+# Example usage:
+plot_country_states(220)
+
+##################################################
+# Code to display variable and non-variable countries
+##################################################
+
+variable_countries <- df_states %>%
+  group_by(country_id) %>%
+  summarise(n_states = n_distinct(state), .groups = "drop") %>%
+  filter(n_states > 1) %>%
+  pull(country_id)
+
+print(variable_countries)
+
+nonvariable_countries <- df_states %>%
+  group_by(country_id) %>%
+  summarise(n_states = n_distinct(state), .groups = "drop") %>%
+  filter(n_states == 1) %>%
+  pull(country_id)
+
+print(nonvariable_countries)
+
+##################################################
+# Code to build and analyze cp sets.
+##################################################
+
+selected_countries <- c(1, 2, 70, 235, 149)
+train_len <- 50
+test_len <- 3
+alpha <- 0.35
+accepts <- 0
+k <- 4L
+m <- 4L
+
+
+list_of_cp_sets <- setNames(vector("list", length(selected_countries)),
+                    as.character(selected_countries))
+
+for (cid in selected_countries) {
+  current_subset <- cp_subset_data_country(cid)
+  current_pair_list <- df_to_pair_list_markov(current_subset)
+  
+  total_len <- train_len + test_len
+  maximum_start_index <- length(current_pair_list) - total_len + 1
+  start <- sample(1:maximum_start_index, 1)
+  
+  sequence <- if (train_len > 0L) current_pair_list[start:(start + train_len - 1)] else list()
+  test_sequence <- current_pair_list[(start + train_len):(start + total_len - 1)]
+  
+  cp_set <- get_cp_set(sequence, integer(0), k, m, test_len, alpha)
+  condensed_set <- Filter(Negate(is.null), cp_set)
+  
+  # store condensed_set under the country ID
+  list_of_cp_sets[[as.character(cid)]] <- condensed_set
+}
+
+
+cp_set_to_counts <- function(cp_set, k = 4L, base0 = TRUE) {
+  if (length(cp_set) == 0) return(tibble::tibble())
+  # Build an L x N matrix where each column is a candidate sequence
+  mat <- do.call(cbind, lapply(cp_set, as.integer))
+  if (is.null(dim(mat))) {
+    # single candidate; force matrix
+    mat <- matrix(mat, ncol = 1L)
+  }
+  
+  # Optionally convert 0..k-1 to 1..k
+  if (base0) mat <- mat + 1L
+  
+  # sanity: all entries should be in 1..k
+  if (any(mat < 1L | mat > k, na.rm = TRUE)) {
+    stop("cp_set contains states outside 1..k after base adjustment.")
+  }
+  
+  L <- nrow(mat)
+  
+  counts <- lapply(seq_len(L), function(t) {
+    st <- mat[t, ]
+    tibble::tibble(
+      timepoint = t,
+      state = factor(1:k, levels = 1:k),
+      count = as.integer(tabulate(st, nbins = k))
+    )
+  })
+  dplyr::bind_rows(counts)
+}
+
+# Build a long DF for all countries
+cp_density_df <- function(list_of_cp_sets, k = 4L, base0 = TRUE) {
+  # keep facet order same as names(list_of_cp_sets)
+  cids <- names(list_of_cp_sets)
+  if (is.null(cids)) cids <- as.character(seq_along(list_of_cp_sets))
+  dfs <- lapply(seq_along(list_of_cp_sets), function(i) {
+    cid <- cids[i]
+    df  <- cp_set_to_counts(list_of_cp_sets[[i]], k = k, base0 = base0)
+    if (nrow(df) == 0) return(tibble())
+    df %>% mutate(country_id = factor(cid, levels = cids))
+  })
+  bind_rows(dfs)
+}
+
+# ---- Make the plot ----
+BASE_FAMILY <- if (Sys.info()[["sysname"]] == "Windows") "Arial" else "Helvetica"
+
+plot_cp_density <- function(list_of_cp_sets, k = 4L, base0 = TRUE) {
+  df <- cp_density_df(list_of_cp_sets, k = k, base0 = base0)
+  if (nrow(df) == 0) {
+    message("No CP candidates to plot.")
+    return(invisible(NULL))
+  }
+  
+  # Discrete x-axis labels
+  df <- df %>%
+    dplyr::mutate(
+      month_label = factor(
+        paste0("Month ", timepoint),
+        levels = paste0("Month ", sort(unique(timepoint)))
+      ),
+      country_label = forcats::fct_inorder(paste0("Country ", as.character(country_id)))
+    )
+  
+  state_labels <- setNames(
+    c("Peaceful", "Escalation", "War", "De-escalation")[seq_len(k)],
+    as.character(seq_len(k))
+  )
+  
+  ggplot(df, aes(x = month_label, y = count, fill = forcats::fct_inorder(state))) +
+    geom_col(position = "fill", width = 0.95) +   # bars touch, no gaps
+    scale_y_continuous(labels = scales::percent_format(accuracy = 1), expand = c(0, 0)) +
+    scale_x_discrete(expand = c(0, 0)) +       # snug axis fit
+    scale_fill_manual(
+      values = c("#a6cee3", "#ff7f00", "#e31a1c", "#33a02c")[seq_len(k)],
+      labels = state_labels,
+      name = "State"
+    ) +
+    labs(
+      title = "State Composition Across Prediction Horizon",
+      subtitle = "Each bar shows relative share of states among CP candidates at each future month",
+      x = NULL,
+      y = "Percentage of candidates"
+    ) +
+    facet_wrap(~ country_label, ncol = 1, scales = "free_x") +
+    theme_minimal(base_size = 14, base_family = "Helvetica") +
+    theme(
+      plot.title = element_text(face = "bold", size = 18, margin = margin(b = 4)),
+      plot.subtitle = element_text(size = 12, margin = margin(b = 10)),
+      legend.position = "bottom",
+      legend.title = element_text(face = "bold"),
+      legend.key.width = unit(16, "pt"),
+      panel.grid.minor = element_blank(),
+      panel.grid.major.x = element_blank(),
+      panel.grid.major.y = element_line(linewidth = 0.4, colour = "#dddddd"),
+      strip.text = element_text(face = "bold", size = 12, margin = margin(t = 6, b = 6)),
+      plot.margin = margin(12, 16, 12, 16)
+    )
+}
+
+# ---- Example usage ----
+# list_of_cp_sets <- results you built earlier, renamed
+# Make sure it's named with country IDs in the order you want to display:
+# names(list_of_cp_sets) <- as.character(selected_countries)
+
+p <- plot_cp_density(list_of_cp_sets, k = 4L, base0 = TRUE)
+print(p)
+
+out_dir <- "outputs/coverage_runs"
+dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+saveRDS(list_of_cp_sets, file.path(out_dir, "list_of_cp_sets_3_035.rds"))
+
+list_of_cp_sets <- readRDS(file.path(out_dir, "list_of_cp_sets.rds"))
+
+##################################################
+# function validation experimentation
+##################################################
+
+lst <- df_to_pair_list_markov(subset_data)
 
 # ---- Split (ensure non-empty test window) ----
 calib_len <- 50L

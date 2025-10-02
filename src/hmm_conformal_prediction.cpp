@@ -445,79 +445,81 @@ double hmm_filter_subroutine_sum(
 // [[Rcpp::export]]
 Rcpp::List get_cp_set(const Rcpp::List& sequence,
                       const Rcpp::IntegerVector& test_observations,
-                      int k, int m, double alpha) {
+                      int k, int m, int pred_len, double alpha) {
   const int n = sequence.size();
-  const int L = test_observations.size();
-  if (L <= 0) Rcpp::stop("test_observations must have positive length.");
-  if (k <= 0 || m <= 0) Rcpp::stop("k and m must be positive.");
   if (n == 0) Rcpp::stop("sequence must be non-empty.");
+  if (k <= 0 || m <= 0) Rcpp::stop("k and m must be positive.");
   
-  Rcpp::List cp_set;                  // output: list of length k^L (potentially huge)
+  // Markov mode iff no test observations were supplied
+  const bool norm_markov = (test_observations.size() == 0);
+  int L = norm_markov ? pred_len : test_observations.size();
   
-  // Candidate state vector (odometer over base-k with L digits)
+  if (L <= 0) Rcpp::stop("pred_len must be positive when test_observations is empty.");
+  if (norm_markov && k != m) Rcpp::stop("k and m must be equal for normal markovian data.");
+  if (!norm_markov && test_observations.size() != L)
+    Rcpp::stop("Length mismatch in test_observations.");
+  
+  Rcpp::List cp_set;
+  
   std::vector<int> state(L, 0);
   bool done = false;
   
   while (!done) {
-    // ---- Build augmented sequence: sequence + zip(state, test_observations) ----
     Rcpp::List augmented(n + L);
     for (int i = 0; i < n; ++i) augmented[i] = sequence[i];
     for (int i = 0; i < L; ++i) {
-      int s = state[i];
-      int o = test_observations[i];
+      const int s = state[i];
+      const int o = norm_markov ? state[i] : test_observations[i];
+      
       if (s < 0 || s >= k) Rcpp::stop("State out of range in candidate.");
       if (o < 0 || o >= m) Rcpp::stop("Observation out of range in test_observations.");
       augmented[n + i] = Rcpp::IntegerVector::create(s, o);
     }
     
-    // ---- Estimate P and B from augmented sequence ----
-    arma::mat P_hat  = estimate_transition_probabilities(augmented, k);
-    arma::mat B_hat  = estimate_observation_probabilities(augmented, k, m);
+    arma::mat P_hat = estimate_transition_probabilities(augmented, k);
+    arma::mat B_hat = estimate_observation_probabilities(augmented, k, m);
     
-    // ---- Build permuted lists and compute conformity scores ----
-    Rcpp::List blocks        = ij_blocks(augmented);
+    Rcpp::List blocks         = ij_blocks(augmented);
     Rcpp::List permuted_lists = create_permutes(blocks, L);
     
     const int M = permuted_lists.size();
     if (M <= 0) {
-      // No permutations produced (shouldn't happen with your create_permutes).
       cp_set.push_back(R_NilValue);
     } else {
-      // score(lst) = 1 - avg_prob; avg_prob uses hmm_filter_subroutine_sum(P,B,L,lst)
       auto score_of = [&](const Rcpp::List& lst) -> double {
-        double s = hmm_filter_subroutine_sum(P_hat, B_hat, L, lst); // sum over L steps
+        double s = hmm_filter_subroutine_sum(P_hat, B_hat, L, lst);
         return 1.0 - (s / static_cast<double>(L));
       };
       
-      // Baseline is the first score (conformity_scores[0])
-      double baseline = score_of(Rcpp::List(permuted_lists[0]));
-      int ge_count = 0;
+      const double baseline = score_of(Rcpp::List(permuted_lists[0]));
+      int g_count = 0, eq_count = 0;
+      const double eps = 1e-12;
+      
       for (int i = 0; i < M; ++i) {
-        double sc = score_of(Rcpp::List(permuted_lists[i]));
-        if (sc >= baseline) ++ge_count;
+        const double sc = score_of(Rcpp::List(permuted_lists[i]));
+        if (sc > baseline + eps) ++g_count;
+        if (std::abs(sc - baseline) <= eps) ++eq_count;
       }
-      double q = static_cast<double>(ge_count) / static_cast<double>(M);
+      const double u = R::runif(0.0, 1.0);
+      const double q = (static_cast<double>(g_count) + u * static_cast<double>(eq_count))
+        / static_cast<double>(M);
       
       if (q > alpha) {
-        // Keep this candidate: return as IntegerVector
         Rcpp::IntegerVector keep(L);
         for (int i = 0; i < L; ++i) keep[i] = state[i];
         cp_set.push_back(keep);
       } else {
-        // Discard: push NULL to mirror Python's None
         cp_set.push_back(R_NilValue);
       }
     }
     
-    // ---- Increment odometer in base-k over L positions ----
     int pos = L - 1;
     while (pos >= 0) {
-      state[pos] += 1;
-      if (state[pos] < k) break;  // no carry needed
-      state[pos] = 0;             // carry
+      if (++state[pos] < k) break;
+      state[pos] = 0;
       --pos;
     }
-    if (pos < 0) done = true;     // overflow -> finished all k^L candidates
+    if (pos < 0) done = true;
   }
   
   return cp_set;
@@ -637,7 +639,7 @@ double test_cpp(int num_trials,
     }
     
     // conformal prediction set for the test observations
-    Rcpp::List cp_set = get_cp_set(calib_data, test_observations, k, m, alpha);
+    Rcpp::List cp_set = get_cp_set(calib_data, test_observations, k, m, test_len, alpha);
     
     // membership test: is `actual` present in cp_set?
     bool found = false;
