@@ -8,10 +8,12 @@ library(RcppDist, quietly = T)
 library(future.apply)
 library(ggplot2)
 library(forcats)
-sourceCpp("hmm_conformal_prediction.cpp")
+library(gridExtra)
 
+setwd("C:/Users/adity_724nfxg/Documents/git clones/HMM_CP_Forecasting")
+sourceCpp("src/cpp_files/cpp_files/hmm_conf_pred_final.cpp")
 
-my_data <- read_parquet("cm_2024_johan.parquet")
+my_data <- read_parquet("raw_data/cm_2024_johan.parquet")
 
 plot(my_data[my_data[,'country_id']==70, 'ged_target'])
 
@@ -81,6 +83,7 @@ df_to_pair_list_markov <- function(df, state_col = "state", state_zero_index = F
   lapply(seq_len(nrow(df)), function(i) c(st[i], st[i]))  # integer length-2 vectors
 }
 
+ctr1 <- my_data[my_data$country_id == 1,,drop=F]
 ##################################################
 # Random sampling simulation across multiple
 # countries
@@ -235,7 +238,7 @@ coverage_random <- function(calib_len, test_len, alpha) {
 }
 
 # -------- Grid over alphas and test lengths --------
-alpha_grid <- seq(0.50, 1.00, by = 0.05)
+alpha_grid <- seq(0.0, 0.5, by = 0.05)
 test_lengths <- 1:6
 calib_len <- 50L
 
@@ -283,18 +286,22 @@ for (L in test_lengths) {
     print(paste("FINISHED L:", L, "FINISHED a:", a, "FINISHED cov_val:", cov_val))
   }
 }
-
 coverage_df <- dplyr::bind_rows(results)
+coverage_df$alpha = 1 - coverage_df$alpha
+
 
 # Plot (unchanged)
-ggplot(coverage_df, aes(x = alpha, y = coverage, group = test_len)) +
-  geom_abline(intercept = 1, slope = -1, linetype = "dashed") +
+# png(filename="plots/reliability_curve.png", width=1000, height=500,
+#     units="px", pointsize=12, bg="white", res=NA)
+p1 = ggplot(coverage_df, aes(x = alpha, y = coverage, group = test_len)) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed") +
   geom_line(aes(color = as.factor(test_len))) +
   facet_wrap(~ panel) +
-  scale_x_continuous(limits = c(0.5, 1.0), breaks = seq(0.5, 1.0, by = 0.05)) +
+  # scale_x_continuous(limits = c(0.4, 1), breaks = seq(0.4, 1, by = 0.05)) +
+  # scale_y_continuous(limits = c(0.4, 1)) + 
   guides(color = guide_legend(title = "Test length", ncol = 4)) +
   labs(
-    title = "Empirical Coverage vs. Alpha",
+    title = "Reliability Curve",
     subtitle = paste0("Calibration length = ", calib_len, "; Test lengths = 1..6"),
     x = expression(alpha),
     y = "Empirical coverage"
@@ -303,6 +310,10 @@ ggplot(coverage_df, aes(x = alpha, y = coverage, group = test_len)) +
   theme(
     legend.position = "bottom"
   )
+pdf("plots/reliability_curve.pdf")
+grid.arrange(p1, ncol=1, nrow=2)
+dev.off()
+
 
 out_dir <- "outputs/coverage_runs"
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
@@ -367,8 +378,8 @@ print(nonvariable_countries)
 
 selected_countries <- c(1, 2, 70, 235, 149)
 train_len <- 50
-test_len <- 3
-alpha <- 0.35
+test_len <- 6
+alpha <- 0.2
 accepts <- 0
 k <- 4L
 m <- 4L
@@ -440,9 +451,6 @@ cp_density_df <- function(list_of_cp_sets, k = 4L, base0 = TRUE) {
   bind_rows(dfs)
 }
 
-# ---- Make the plot ----
-BASE_FAMILY <- if (Sys.info()[["sysname"]] == "Windows") "Arial" else "Helvetica"
-
 plot_cp_density <- function(list_of_cp_sets, k = 4L, base0 = TRUE) {
   df <- cp_density_df(list_of_cp_sets, k = k, base0 = base0)
   if (nrow(df) == 0) {
@@ -506,9 +514,12 @@ print(p)
 
 out_dir <- "outputs/coverage_runs"
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
-saveRDS(list_of_cp_sets, file.path(out_dir, "list_of_cp_sets_3_035.rds"))
+saveRDS(list_of_cp_sets, file.path(out_dir, "list_of_cp_sets_6_020.rds"))
 
-list_of_cp_sets <- readRDS(file.path(out_dir, "list_of_cp_sets.rds"))
+list_of_cp_sets <- readRDS(file.path(out_dir, "list_of_cp_sets_6_020.rds"))
+
+ctr1 = my_data[my_data$country_id == 1,]
+plot(ctr1$ged_target)
 
 ##################################################
 # function validation experimentation

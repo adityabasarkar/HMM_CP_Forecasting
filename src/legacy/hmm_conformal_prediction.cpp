@@ -13,7 +13,6 @@
 // // [[Rcpp::plugins(openmp)]]
 
 // [[Rcpp::export]]
-
 Rcpp::List generate_hmm_sequence_list(int n,
                                       const arma::vec& pi,
                                       const arma::mat& P,
@@ -234,8 +233,10 @@ std::vector<std::vector<int>> k_permutations(std::vector<int> nums, int k) {
   
   std::vector<std::vector<int>> result;
   int n = static_cast<int>(nums.size());
+  int k_temp = k;
   
-  if (k < 0 || k > n) return result;
+  if (k < 0) return result;
+  if (k > n) k_temp = n;
   if (k == 0) { result.push_back({}); return result; }
   
   // --- Compare nPk = n*(n-1)*...*(n-k+1) against LIMIT and LIMIT2; early-stop once exceeding LIMIT2.
@@ -243,7 +244,7 @@ std::vector<std::vector<int>> k_permutations(std::vector<int> nums, int k) {
   unsigned long long threshold = LIMIT2;
   bool gt_LIMIT = false;
   bool gt_LIMIT2 = false;
-  for (int x = n - k + 1; x <= n; ++x) {
+  for (int x = n - k_temp + 1; x <= n; ++x) {
     if (prod > threshold / (unsigned long long)std::max(1, x)) {
       // Exceeded LIMIT2 by multiplication
       gt_LIMIT2 = true;
@@ -260,13 +261,13 @@ std::vector<std::vector<int>> k_permutations(std::vector<int> nums, int k) {
   
   if (!gt_LIMIT) {
     // Case 1: nPk <= LIMIT -> enumerate all unique and return all
-    enumerate_unique_k_perms_by_value(nums, k, result);
+    enumerate_unique_k_perms_by_value(nums, k_temp, result);
     return result;
   }
   
   if (!gt_LIMIT2) {
     // Case 2: LIMIT < nPk <= 2*LIMIT -> enumerate all, then sample 100k (or all if fewer)
-    enumerate_unique_k_perms_by_value(nums, k, result);
+    enumerate_unique_k_perms_by_value(nums, k_temp, result);
     // Uniform downsample without replacement to exactly LIMIT (or size if smaller)
     std::size_t want = std::min<std::size_t>(LIMIT, result.size());
     
@@ -290,13 +291,13 @@ std::vector<std::vector<int>> k_permutations(std::vector<int> nums, int k) {
     std::vector<int> idx(n);
     for (int i = 0; i < n; ++i) idx[i] = i;
     // Partial Fisher–Yates: pick first k positions
-    for (int i = 0; i < k; ++i) {
+    for (int i = 0; i < k_temp; ++i) {
       std::uniform_int_distribution<int> dist(i, n - 1);
       int j = dist(rng);
       std::swap(idx[i], idx[j]);
     }
     std::vector<int> v; v.reserve(k);
-    for (int i = 0; i < k; ++i) v.push_back(nums[idx[i]]);
+    for (int i = 0; i < k_temp; ++i) v.push_back(nums[idx[i]]);
     uniq.insert(std::move(v));
   }
   
@@ -337,6 +338,12 @@ Rcpp::List create_permutes(const Rcpp::List& blocks, int test_len) {
   Rcpp::List return_lst;
   for (std::vector<int> perm: perms) {
     Rcpp::List current_lst;
+    
+    Rcpp::List block1 = blocks[0];
+    for (int i = 0; i < block1.size(); i++) {
+      current_lst.push_back(block1[i]);
+    }
+    
     for (int ind: perm) {
       Rcpp::List current_block = blocks[ind];
       for (int i = 0; i < current_block.size(); i++) {
@@ -344,6 +351,17 @@ Rcpp::List create_permutes(const Rcpp::List& blocks, int test_len) {
       }
     }
     current_lst.push_back(ij_tuple);
+    return_lst.push_back(current_lst);
+  }
+  
+  // in the case that nothing is in the return list (no permutations)
+  if (return_lst.size() == 0) {
+    Rcpp::List current_lst;
+    for (Rcpp::List block: blocks) {
+      for (Rcpp::IntegerVector v: block) {
+        current_lst.push_back(v);
+      }
+    }
     return_lst.push_back(current_lst);
   }
   
@@ -456,8 +474,6 @@ Rcpp::List get_cp_set(const Rcpp::List& sequence,
   
   if (L <= 0) Rcpp::stop("pred_len must be positive when test_observations is empty.");
   if (norm_markov && k != m) Rcpp::stop("k and m must be equal for normal markovian data.");
-  if (!norm_markov && test_observations.size() != L)
-    Rcpp::stop("Length mismatch in test_observations.");
   
   Rcpp::List cp_set;
   
@@ -479,8 +495,18 @@ Rcpp::List get_cp_set(const Rcpp::List& sequence,
     arma::mat P_hat = estimate_transition_probabilities(augmented, k);
     arma::mat B_hat = estimate_observation_probabilities(augmented, k, m);
     
-    Rcpp::List blocks         = ij_blocks(augmented);
+    Rcpp::List blocks = ij_blocks(augmented);
     Rcpp::List permuted_lists = create_permutes(blocks, L);
+    
+    Rcpp::List baseline_permute;
+    int start_idx = 0;
+    start_idx = (L > blocks.size() - 1) ? 0 : blocks.size() - L - 1;
+    for (int i = start_idx; i < blocks.size(); i++) {
+      Rcpp::List current_block = blocks[i];
+      for (Rcpp::IntegerVector x: current_block) {
+        baseline_permute.push_back(x);
+      }
+    }
     
     const int M = permuted_lists.size();
     if (M <= 0) {
@@ -491,13 +517,13 @@ Rcpp::List get_cp_set(const Rcpp::List& sequence,
         return 1.0 - (s / static_cast<double>(L));
       };
       
-      const double baseline = score_of(Rcpp::List(permuted_lists[0]));
+      const double baseline = score_of(Rcpp::List(baseline_permute));
       int g_count = 0, eq_count = 0;
       const double eps = 1e-12;
       
       for (int i = 0; i < M; ++i) {
         const double sc = score_of(Rcpp::List(permuted_lists[i]));
-        if (sc > baseline + eps) ++g_count;
+        if (sc >= baseline + eps) ++g_count;
         if (std::abs(sc - baseline) <= eps) ++eq_count;
       }
       const double u = R::runif(0.0, 1.0);
@@ -524,11 +550,12 @@ Rcpp::List get_cp_set(const Rcpp::List& sequence,
   
   return cp_set;
 }
-
+ 
 // [[Rcpp::export]]
 float get_cp_p_val(const Rcpp::List& sequence,
                    const Rcpp::List& test_sequence,
                    int k, int m, double alpha) {
+  Rcpp::Rcout << "here" << std::endl;
   const int n = sequence.size();
   const int L = test_sequence.size();
   if (L <= 0) Rcpp::stop("test_observations must have positive length.");
@@ -555,7 +582,18 @@ float get_cp_p_val(const Rcpp::List& sequence,
   Rcpp::List blocks        = ij_blocks(augmented);
   Rcpp::List permuted_lists = create_permutes(blocks, L);
   
+  Rcpp::List baseline_permute;
+  int start_idx = 0;
+  start_idx = (L > blocks.size() - 1) ? 0 : blocks.size() - L - 1;
+  for (int i = start_idx; i < blocks.size(); i++) {
+    Rcpp::List current_block = blocks[i];
+    for (Rcpp::IntegerVector x: current_block) {
+      baseline_permute.push_back(x);
+    }
+  }
+  
   const int M = permuted_lists.size();
+
   if (M <= 0) {
     return 0.0;
   } else {
@@ -564,7 +602,8 @@ float get_cp_p_val(const Rcpp::List& sequence,
       return 1.0 - (s / static_cast<double>(L));
     };
     
-    const double baseline = score_of(Rcpp::List(permuted_lists[0]));
+    const double baseline = score_of(Rcpp::List(baseline_permute));
+    Rcpp::Rcout << baseline << std::endl;
     
     // Count strict-greater and equals (with tolerance)
     const double eps = 1e-12;
@@ -573,7 +612,8 @@ float get_cp_p_val(const Rcpp::List& sequence,
     
     for (int i = 0; i < M; ++i) {
       const double sc = score_of(Rcpp::List(permuted_lists[i]));
-      if (sc > baseline + eps) {
+      Rcpp::Rcout << sc << std::endl;
+      if (sc >= baseline) {
         ++n_gt;
       } else if (std::abs(sc - baseline) <= eps) {
         ++n_eq; // includes the baseline itself when i == 0
