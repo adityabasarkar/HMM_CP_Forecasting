@@ -1,13 +1,13 @@
-library(arrow)
 library(dplyr)
 library(tidyr)
 
 # Retrieve raw data from parquet
-my_data <- read_parquet("data/raw/cm_2024_johan.parquet")
+my_data <- read.csv("data/raw/markov_data2507.csv")
+country_names <- read.csv("data/raw/country_list.csv")
 
 # Filters non-contiguous countries.
 preprocessed <- my_data %>%
-  filter(!is.na(month_id), !is.na(ged_target)) %>%  # combine filters
+  filter(!is.na(month_id), !is.na(target_ged)) %>%  # combine filters
   group_by(country_id) %>%
   mutate(
     n_unique   = n_distinct(month_id),
@@ -21,8 +21,8 @@ preprocessed <- my_data %>%
 # determine the states for each country
 preprocessed <- preprocessed %>%
   group_by(country_id) %>%
-  mutate(prev_fatal   = lag(ged_target, default = 0L),
-         curr_fatal   = ged_target,
+  mutate(prev_fatal   = lag(target_ged, default = 0L),
+         curr_fatal   = target_ged,
          prev_pos     = prev_fatal > 0L,
          curr_pos     = curr_fatal > 0L,
          state = case_when(
@@ -32,14 +32,15 @@ preprocessed <- preprocessed %>%
            prev_pos & !curr_pos ~ 4L  # De-escalation
          ),
          casualties = case_when(
-           ged_target > 0 ~ 1,
-           ged_target <= 0 ~ 0
+           target_ged > 0 ~ 1,
+           target_ged <= 0 ~ 0
          )) %>%
   ungroup() %>%
   arrange(country_id, month_id)
 
 preprocessed <- preprocessed %>%
-  select(month_id, country_id, ged_target, state)
+  left_join(country_names, by = "country_id") %>%
+  select(month_id, country_id, name, target_ged, state, year, month)
 
 
 out_dir <- "outputs/r_objects"

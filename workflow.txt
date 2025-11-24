@@ -1,0 +1,15 @@
+Program execution order:
+
+1. Preprocessing
+	a. src/entry_points/preprocessing/preprocess.R
+
+2. Simulations
+	a. src/entry_points/simulations_and_analysis/fatality_rel_curves.R
+	b. src/entry_points/simulations_and_analysis/fatality_state_compositions.R
+	c. src/entry_points/simulations_and_analysis/mc_sim_rel_curves.R
+	d. src/entry_points/simulations_and_analysis/mc_sim_state_compositions.R
+
+3. Visualizations
+	a. src/entry_points/visualizations/cp_set_state_comp_vis.R
+	b. src/entry_points/visualizations/fatality_rel_curve_visualization.R
+	c. src/entry_points/visualizations/mc_sim_rel_curve_visualization.R

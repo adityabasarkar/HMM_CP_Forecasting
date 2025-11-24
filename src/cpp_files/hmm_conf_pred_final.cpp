@@ -555,8 +555,21 @@ Rcpp::List get_cp_set(
   double alpha,
   bool add_zero,
   std::string mode,
-  const arma::mat &allowable_transitions = arma::eye<arma::mat>(4, 4)
+  const arma::mat &allowable_transitions,
+  bool coin_flip = true
 ) {
+  
+  arma::mat allowed;
+  
+  if (allowable_transitions.n_elem == 0) {
+    allowed = arma::ones<arma::mat>(4,4);
+  } else {
+    allowed = allowable_transitions;
+  }
+  
+  if (allowed.n_rows != k || allowed.n_cols != k) {
+    allowed = arma::ones(k, k);
+  }
   
   Rcpp::RNGScope scope;
   if ((mode != "hmm") && (mode != "mm")) Rcpp::stop("Must have correct mode type.");
@@ -652,59 +665,76 @@ Rcpp::List get_cp_set(
       
     }
     
-    
-    arma::mat P_hat = estimate_transition_probabilities(augmented, k);
-    arma::mat B_hat = arma::ones<arma::mat>(k, k);;
-    if (mode == "hmm") {
-      B_hat = estimate_observation_probabilities(augmented, k, m);
-    } else if (mode == "mm") {
-      B_hat = arma::ones<arma::mat>(k, k);
-    }
-    
-    Rcpp::List blocks = ij_blocks(augmented);
-    Rcpp::List permuted_lists = create_permutes(blocks, test_len, num_perms);
-    
-    int nb = static_cast<int>(blocks.size());
-    int start_idx = std::max(0, nb - test_len - 1);
-    Rcpp::List baseline_permute;
-    
-    for (int i = start_idx; i < nb; ++i) {
-      Rcpp::List current_block = blocks[i];
-      for (int j = 0; j < current_block.size(); ++j) {
-        baseline_permute.push_back(Rcpp::as<Rcpp::IntegerVector>(current_block[j]));
+    bool allowed_sequence = true;
+    for (int i = T - 1; i < augmented.size() - 1; i++) {
+      int s1 = Rcpp::as<Rcpp::IntegerVector>(augmented[i])[0];
+      int s2 = Rcpp::as<Rcpp::IntegerVector>(augmented[i+1])[0];
+      if (allowed(s1, s2) == 0) {
+        allowed_sequence = false;
+        break;
       }
     }
     
-    int M = permuted_lists.size();
-    if (M <= 0) {
-      
-      cp_set.push_back(R_NilValue);
     
-    } else {
-      
-      auto score_of = [&](Rcpp::List lst) -> double {
-        double s = filter_subroutine_sum(P_hat, B_hat, test_len, lst);
-        return 1.0 - (s / static_cast<double>(test_len));
-      };
-      
-      double baseline = score_of(baseline_permute);
-      int g_count = 0, eq_count = 0;
-      double eps = 1e-12;
-      
-      for (int i = 0; i < M; i++) {
-        Rcpp::List cand = Rcpp::as<Rcpp::List>(permuted_lists[i]);
-        double sc = score_of(cand);
-        if (sc >= baseline + eps) g_count += 1;
-        if (std::abs(sc - baseline) <= eps) eq_count += 1;
+    if (allowed_sequence) {
+      arma::mat P_hat = estimate_transition_probabilities(augmented, k);
+      arma::mat B_hat = arma::ones<arma::mat>(k, k);;
+      if (mode == "hmm") {
+        B_hat = estimate_observation_probabilities(augmented, k, m);
+      } else if (mode == "mm") {
+        B_hat = arma::ones<arma::mat>(k, k);
       }
-      double u = R::runif(0.0, 1.0);
-      double q = (static_cast<double>(g_count) + u * static_cast<double>(eq_count))
-        / static_cast<double>(M);
       
-      if (q > alpha) {
-        Rcpp::IntegerVector keep(T1);
-        for (int i = 0; i < T1; i++) keep[i] = state[i];
-        cp_set.push_back(keep);
+      Rcpp::List blocks = ij_blocks(augmented);
+      Rcpp::List permuted_lists = create_permutes(blocks, test_len, num_perms);
+      
+      int nb = static_cast<int>(blocks.size());
+      int start_idx = std::max(0, nb - test_len - 1);
+      Rcpp::List baseline_permute;
+      
+      for (int i = start_idx; i < nb; ++i) {
+        Rcpp::List current_block = blocks[i];
+        for (int j = 0; j < current_block.size(); ++j) {
+          baseline_permute.push_back(Rcpp::as<Rcpp::IntegerVector>(current_block[j]));
+        }
+      }
+      
+      int M = permuted_lists.size();
+      if (M <= 0) {
+        
+        cp_set.push_back(R_NilValue);
+        
+      } else {
+        
+        auto score_of = [&](Rcpp::List lst) -> double {
+          double s = filter_subroutine_sum(P_hat, B_hat, test_len, lst);
+          return 1.0 - (s / static_cast<double>(test_len));
+        };
+        
+        double baseline = score_of(baseline_permute);
+        int g_count = 0, eq_count = 0;
+        double eps = 1e-12;
+        
+        for (int i = 0; i < M; i++) {
+          Rcpp::List cand = Rcpp::as<Rcpp::List>(permuted_lists[i]);
+          double sc = score_of(cand);
+          if (sc >= baseline + eps) g_count += 1;
+          if (std::abs(sc - baseline) <= eps) eq_count += 1;
+        }
+		double u = 0.0;
+		if (coin_flip) {
+			u = R::runif(0.0, 1.0);
+		} else {
+			u = 1.0;
+		}
+        double q = (static_cast<double>(g_count) + u * static_cast<double>(eq_count))
+          / static_cast<double>(M);
+        
+        if (q > alpha) {
+          Rcpp::IntegerVector keep(T1);
+          for (int i = 0; i < T1; i++) keep[i] = state[i];
+          cp_set.push_back(keep);
+        }
       }
     }
     
@@ -729,7 +759,8 @@ double get_p_val(
     Rcpp::List& test_sequence,
     int num_perms, int k, int m,
     bool add_zero,
-    std::string mode
+    std::string mode,
+	bool coin_flip = true
 ) {
   
   Rcpp::RNGScope scope;
@@ -824,7 +855,6 @@ double get_p_val(
   
   
   arma::mat P_hat = estimate_transition_probabilities(augmented, k);
-  Rcpp::Rcout << P_hat << std::endl;
   arma::mat B_hat;
   if (mode == "hmm") {
     B_hat = estimate_observation_probabilities(augmented, k, m);
@@ -867,7 +897,12 @@ double get_p_val(
       if (sc >= baseline + eps) g_count += 1;
       if (std::abs(sc - baseline) <= eps) eq_count += 1;
     }
-    double u = R::runif(0.0, 1.0);
+	double u = 0.0;
+    if (coin_flip) {
+		u = R::runif(0.0, 1.0);
+	} else {
+		u = 1.0;
+	}
     double q = (static_cast<double>(g_count) + u * static_cast<double>(eq_count))
       / static_cast<double>(M);
   
