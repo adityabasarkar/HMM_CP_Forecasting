@@ -6,11 +6,11 @@ library(scales)
 
 data_dir = "outputs/r_objects"
 cp_set_results1 = readRDS(file.path(data_dir, "cp_set_results_no_added_zero_fatality_is.rds"))
-cp_set_results2 = readRDS(file.path(data_dir, "cp_set_results_added_zero_fatality_is.rds"))
-cp_set_results3 = readRDS(file.path(data_dir, "cp_set_results_no_added_zero_fatality_oos.rds"))
-cp_set_results4 = readRDS(file.path(data_dir, "cp_set_results_added_zero_fatality_oos.rds"))
+# cp_set_results2 = readRDS(file.path(data_dir, "cp_set_results_added_zero_fatality_is.rds"))
+# cp_set_results3 = readRDS(file.path(data_dir, "cp_set_results_no_added_zero_fatality_oos.rds"))
+# cp_set_results4 = readRDS(file.path(data_dir, "cp_set_results_added_zero_fatality_oos.rds"))
 cp_set_results5 = readRDS(file.path(data_dir, "likelihood_sum_set_results_is.rds"))
-cp_set_results6 = readRDS(file.path(data_dir, "likelihood_sum_set_results_oos.rds"))
+# cp_set_results6 = readRDS(file.path(data_dir, "likelihood_sum_set_results_oos.rds"))
 cp_set_results7 = readRDS(file.path(data_dir, "cp_set_results_mc.rds"))
 
 T1 = 6
@@ -135,63 +135,67 @@ plot_cp_results <- function(df, main_title, subtitle = NULL) {
 }
 
 df1 <- cp_results_to_df(cp_set_results1)
-df2 <- cp_results_to_df(cp_set_results2)
-df3 <- cp_results_to_df(cp_set_results3)
-df4 <- cp_results_to_df(cp_set_results4)
+# df2 <- cp_results_to_df(cp_set_results2)
+# df3 <- cp_results_to_df(cp_set_results3)
+# df4 <- cp_results_to_df(cp_set_results4)
 df5 <- cp_results_to_df(cp_set_results5)
-df6 <- cp_results_to_df(cp_set_results6)
+# df6 <- cp_results_to_df(cp_set_results6)
 df7 <- cp_results_to_df(cp_set_results7)
 
 
 p1 <- plot_cp_results(
   df1,
   "State Composition Across Prediction Horizon for CP Sets",
-  "Fatality Data, No Added Zero, In-sample, alpha = 0.01"
+  "Fatality Data, alpha = 0.2"
 )
 
-p2 <- plot_cp_results(
-  df2,
-  "State Composition Across Prediction Horizon for CP Sets",
-  "Fatality Data, Added Zero, In-sample, alpha = 0.01"
-)
-
-p3 <- plot_cp_results(
-  df3,
-  "State Composition Across Prediction Horizon for CP Sets",
-  "Fatality Data, No Added Zero, Out-of-sample, alpha = 0.01"
-)
-
-p4 <- plot_cp_results(
-  df4,
-  "State Composition Across Prediction Horizon for CP Sets",
-  "Fatality Data, Added Zero, Out-of-sample, alpha = 0.01"
-)
+# p2 <- plot_cp_results(
+#   df2,
+#   "State Composition Across Prediction Horizon for CP Sets",
+#   "Fatality Data, Added Zero, In-sample, alpha = 0.01"
+# )
+# 
+# p3 <- plot_cp_results(
+#   df3,
+#   "State Composition Across Prediction Horizon for CP Sets",
+#   "Fatality Data, No Added Zero, Out-of-sample, alpha = 0.01"
+# )
+# 
+# p4 <- plot_cp_results(
+#   df4,
+#   "State Composition Across Prediction Horizon for CP Sets",
+#   "Fatality Data, Added Zero, Out-of-sample, alpha = 0.01"
+# )
 
 p5 <- plot_cp_results(
   df5,
   "State Composition Across Prediction Horizon for Likelihood Sets",
-  "Fatality Data, In-sample, alpha = 0.01"
+  "Fatality Data, alpha = 0.2"
 )
 
-p6 <- plot_cp_results(
-  df6,
-  "State Composition Across Prediction Horizon for Likelihood Sets",
-  "Fatality Data, Out-of-sample, alpha = 0.01"
-)
+# p6 <- plot_cp_results(
+#   df6,
+#   "State Composition Across Prediction Horizon for Likelihood Sets",
+#   "Fatality Data, Out-of-sample, alpha = 0.01"
+# )
+
 p7 <- plot_cp_results(
   df7,
   "State Composition Across Prediction Horizon for CP Sets",
-  "Monte Carlo Simulations, alpha = 0.01"
+  "Monte Carlo Simulations, alpha = 0.2"
 )
 
 # View in RStudio
-p1; p2; p3; p4; p5; p6; p7
+p1; # p2; p3; p4; 
+p5; 
+# p6; 
+p7
 
 # Save to PDF (tweak width/height if you want)
-ggsave("outputs/plots/cp_sets_no_added_zero_is.pdf",   p1, width = 10, height = 11, units = "in", device = cairo_pdf)
-ggsave("outputs/plots/cp_sets_added_zero_is.pdf",      p2, width = 10, height = 11, units = "in", device = cairo_pdf)
-ggsave("outputs/plots/cp_sets_no_added_zero_oos.pdf",  p3, width = 10, height = 11, units = "in", device = cairo_pdf)
-ggsave("outputs/plots/cp_sets_added_zero_oos.pdf",     p4, width = 10, height = 11, units = "in", device = cairo_pdf)
-ggsave("outputs/plots/likelihood_sets_is.pdf",     p5, width = 10, height = 11, units = "in", device = cairo_pdf)
-ggsave("outputs/plots/likelihood_sets_oos.pdf",     p6, width = 10, height = 11, units = "in", device = cairo_pdf)
-ggsave("outputs/plots/monte_carlo_cp_sets.pdf",     p7, width = 10, height = 6, units = "in", device = cairo_pdf)
+ggsave("outputs/plots/cp_sets_no_added_zero_is.pdf",   p1, width = 10, height = 8, units = "in", device = cairo_pdf)
+# ggsave("outputs/plots/cp_sets_added_zero_is.pdf",      p2, width = 10, height = 11, units = "in", device = cairo_pdf)
+# ggsave("outputs/plots/cp_sets_no_added_zero_oos.pdf",  p3, width = 10, height = 11, units = "in", device = cairo_pdf)
+# ggsave("outputs/plots/cp_sets_added_zero_oos.pdf",     p4, width = 10, height = 11, units = "in", device = cairo_pdf)
+ggsave("outputs/plots/likelihood_sets_is.pdf",     p5, width = 10, height = 8, units = "in", device = cairo_pdf)
+# ggsave("outputs/plots/likelihood_sets_oos.pdf",     p6, width = 10, height = 11, units = "in", device = cairo_pdf)
+ggsave("outputs/plots/monte_carlo_cp_sets.pdf",     p7, width = 10, height = 4, units = "in", device = cairo_pdf)

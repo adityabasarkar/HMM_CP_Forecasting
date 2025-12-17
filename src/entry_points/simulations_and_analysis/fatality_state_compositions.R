@@ -13,12 +13,12 @@ sourceCpp("src/cpp_files/hmm_conf_pred_final.cpp")
 data_dir = "outputs/r_objects"
 data = readRDS(file.path(data_dir, "preprocessed_data.rds"))
 
-countries <- c(1, 2, 70, 235, 149, 57, 245, 234, 66, 117)
+countries <- c(70, 235, 149, 57, 245)
 end1 = 540 # Dec 2022
 end2 = 547
-alpha = 0.01
+alpha = 0.2
 T1 = 6
-set.seed(123456)
+set.seed(2569)
 
 
 mk_pairs <- function(states_vec) lapply(states_vec, function(s) s-1)
@@ -85,15 +85,15 @@ get_cp_set_mat = function(end_id, add_zero) {
 }
 
 cp_set_results1 <- get_cp_set_mat(end1, FALSE) # A1
-cp_set_results2 <- get_cp_set_mat(end1, TRUE) # A2
-cp_set_results3 <- get_cp_set_mat(end2, FALSE) # B1
-cp_set_results4 <- get_cp_set_mat(end2, TRUE) # B2
+# cp_set_results2 <- get_cp_set_mat(end1, TRUE) # A2
+# cp_set_results3 <- get_cp_set_mat(end2, FALSE) # B1
+# cp_set_results4 <- get_cp_set_mat(end2, TRUE) # B2
 
 data_dir = "outputs/r_objects"
 saveRDS(cp_set_results1, file.path(data_dir, "cp_set_results_no_added_zero_fatality_is.rds"))
-saveRDS(cp_set_results2, file.path(data_dir, "cp_set_results_added_zero_fatality_is.rds"))
-saveRDS(cp_set_results3, file.path(data_dir, "cp_set_results_no_added_zero_fatality_oos.rds"))
-saveRDS(cp_set_results4, file.path(data_dir, "cp_set_results_added_zero_fatality_oos.rds"))
+# saveRDS(cp_set_results2, file.path(data_dir, "cp_set_results_added_zero_fatality_is.rds"))
+# saveRDS(cp_set_results3, file.path(data_dir, "cp_set_results_no_added_zero_fatality_oos.rds"))
+# saveRDS(cp_set_results4, file.path(data_dir, "cp_set_results_added_zero_fatality_oos.rds"))
 
 
 # Building set through ordering likelihoods
@@ -129,8 +129,8 @@ likelihood_set = function(end_id) {
     )
     
     # product of transitions along a full path (start_state, seq_row)
-    path_prob <- function(suffix01) {
-      states01 <- c(start_state, as.integer(suffix01))
+    path_prob <- function(seq) {
+      states01 <- c(start_state, as.integer(seq))
       from <- states01[-length(states01)] + 1L
       to   <- states01[-1]               + 1L
       if (any(allowable_transitions[cbind(from, to)] == 0)) {
@@ -195,8 +195,8 @@ likelihood_set = function(end_id) {
 }
 
 likelihood_sum_set_results_fatality1 = likelihood_set(end1) # A3
-likelihood_sum_set_results_fatality2 = likelihood_set(end2) # B3
+# likelihood_sum_set_results_fatality2 = likelihood_set(end2) # B3
 
 data_dir = "outputs/r_objects"
 saveRDS(likelihood_sum_set_results_fatality1, file.path(data_dir, "likelihood_sum_set_results_is.rds"))
-saveRDS(likelihood_sum_set_results_fatality2, file.path(data_dir, "likelihood_sum_set_results_oos.rds"))
+# saveRDS(likelihood_sum_set_results_fatality2, file.path(data_dir, "likelihood_sum_set_results_oos.rds"))

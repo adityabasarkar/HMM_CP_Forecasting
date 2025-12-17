@@ -42,6 +42,15 @@ preprocessed <- preprocessed %>%
   left_join(country_names, by = "country_id") %>%
   select(month_id, country_id, name, target_ged, state, year, month)
 
+preprocessed <- preprocessed %>%
+  group_by(country_id) %>%
+  filter(
+    mean(state == 1) <= 0.99,
+    sum(state != 1) >= 5,
+    !if_any(everything(), is.na)
+  ) %>%
+  ungroup()
+
 
 out_dir <- "outputs/r_objects"
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)

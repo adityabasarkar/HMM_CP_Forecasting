@@ -1,11 +1,11 @@
 Analysis
 ------------------
 A. Train until dec 2024 and test until june 2025
-	1. Composition plot for CP approach without adding 0 (stacked bar graph) [cp_sets_no_added_zero_is.pdf]
+	1. Composition plot for CP approach without adding 0 (stacked bar graph) [cp_sets_no_added_zero_is.pdf] [keep]
 	2. Composition plot for CP approach adding 0 (stacked bar graph) [cp_sets_added_zero_is.pdf]
-	3. Composition plot for likelihood set (stacked bar graph) [likelihood_sets_is.pdf]
-	4. Reliability curve for original CP approach (line graph) [rel_curve_cp_fatal.pdf]
-	5. Reliability curve for likelihood approach (line graph) [rel_curve_lik_fatal.pdf]
+	3. Composition plot for likelihood set (stacked bar graph) [likelihood_sets_is.pdf] [keep]
+	4. Reliability curve for original CP approach (line graph) [rel_curve_cp_fatal.pdf] [keep]
+	5. Reliability curve for likelihood approach (line graph) [rel_curve_lik_fatal.pdf] [keep]
 	6. 2 window reliability curve for CP approach with added 0 - anchored and not anchored (line graph) [rel_curve_anchor_fatal.pdf]
 
 B. Out of sample prediction - use all data to train and test august 2025 until jan 2026
@@ -14,9 +14,9 @@ B. Out of sample prediction - use all data to train and test august 2025 until j
 	3. Composition plot for likelihood set (stacked bar graph) [likelihood_sets_oos.pdf]
 
 C. Simulation study:
-	1. Composition plot for CP approach without adding 0 (stacked bar graph) [monte_carlo_cp_sets.pdf]
+	1. Composition plot for CP approach without adding 0 (stacked bar graph) [monte_carlo_cp_sets.pdf] [keep]
 	2. Composition plot for CP approach adding 0 (stacked bar graph) [monte_carlo_cp_sets.pdf]
-	3. Composition plot for likelihood set (stacked bar graph) [monte_carlo_cp_sets.pdf]
-	4. Reliability curve for original CP approach (line graph) [rel_curve_cp_mc.pdf]
-	5. Reliability curve for likelihood approach (line graph) [rel_curve_lik_mc.pdf]
+	3. Composition plot for likelihood set (stacked bar graph) [monte_carlo_cp_sets.pdf] [keep]
+	4. Reliability curve for original CP approach (line graph) [rel_curve_cp_mc.pdf] [keep]
+	5. Reliability curve for likelihood approach (line graph) [rel_curve_lik_mc.pdf] [keep]
 	6. 2 window reliability curve for CP approach with added 0 - anchored and not anchored (line graph) [rel_curve_anchor_mc.pdf]
