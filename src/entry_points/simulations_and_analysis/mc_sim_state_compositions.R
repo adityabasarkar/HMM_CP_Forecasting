@@ -192,4 +192,4 @@ get_cp_set_mat = function() {
 mc_cp_set_results1 <- get_cp_set_mat() # C1, C2, C3
 
 data_dir = "outputs/r_objects"
-saveRDS(mc_cp_set_results1, file.path(data_dir, "cp_set_results_mc.rds"))
+saveRDS(mc_cp_set_results1, file.path(data_dir, "sim_compare_compositions.rds"))
