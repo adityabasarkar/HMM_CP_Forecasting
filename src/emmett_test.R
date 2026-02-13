@@ -26,6 +26,7 @@ alpha = 0.2
 T1 = 6
 set.seed(2569)
 
+# Functions to run all analyses ------------------------------------------------
 
 mk_pairs <- function(states_vec) lapply(states_vec, function(s) s-1)
 
@@ -37,6 +38,9 @@ get_cp_set_prop = function(end_id, add_zero, ctr_id, data) {
   cal_idx <- 1:end_idx
   s_cal  <- country_df[[ "state" ]][cal_idx]
   mm_seq_calib <- mk_pairs(s_cal)
+  
+  end_T_T_1 <- which(country_df$month_id == (end_id+T1))
+  true_forecast_seq = country_df$state[(end_idx+1):end_T_T_1]
   
   # cp set 1
   allowable_transitions <- matrix(
@@ -74,35 +78,6 @@ get_cp_set_prop = function(end_id, add_zero, ctr_id, data) {
   
   ctr_prop <- sweep(ctr_res, 2, colSums(ctr_res), "/")
   
-  return(ctr_prop)
-  
-}
-
-get_cp_set_prop_emmett = function(end_id, add_zero, ctr_id, data) {
-  
-  country_df = data[data$country_id == ctr_id,]
-  
-  end_idx <- which(country_df$month_id == end_id)
-  cal_idx <- 1:end_idx
-  s_cal  <- country_df[[ "state" ]][cal_idx]
-  mm_seq_calib <- mk_pairs(s_cal)
-  
-  end_T_T_1 <- which(country_df$month_id == (end_id+T1))
-  true_forecast_seq = country_df$state[(end_idx+1):end_T_T_1]
-  
-  # cp set 1
-  allowable_transitions <- matrix(
-    c(1,1,0,0,
-      0,0,1,1,
-      0,0,1,1,
-      1,1,0,0),
-    nrow = 4,
-    ncol = 4,
-    byrow = TRUE
-  )
-  
-  cp_set <- get_cp_set(mm_seq_calib, c(0), T1, 1000, 4, 4, alpha, add_zero, "mm", allowable_transitions)
-  
   cp_set_matrix = do.call('rbind', cp_set)
   cp_set_matrix_prop = rbind(apply(cp_set_matrix, 2, function(x) {mean(x == 0)}),
                              apply(cp_set_matrix, 2, function(x) {mean(x == 1)}),
@@ -114,9 +89,11 @@ get_cp_set_prop_emmett = function(end_id, add_zero, ctr_id, data) {
   contains_true_seq = any(apply(cp_set_matrix, 1, function(row) all(row == true_forecast_seq)))
   
   
-  cp_set_results = list("cp_set_matrix_prop" = cp_set_matrix_prop,
+  cp_set_results = list("ctr_prop" = ctr_prop,
+                        "cp_set_matrix_prop" = cp_set_matrix_prop,
                         "cardinality_cp_set" = nrow(cp_set_matrix),
                         "contains_true_seq"  = contains_true_seq)
+  
   return(cp_set_results)
   
 }
@@ -129,6 +106,9 @@ get_likelihood_set_prop = function(end_id, ctr_id, data) {
   cal_idx <- 1:end_idx
   s_cal  <- country_df[[ "state" ]][cal_idx]
   mm_seq_calib <- mk_pairs(s_cal)
+  
+  end_T_T_1 <- which(country_df$month_id == (end_id+T1))
+  true_forecast_seq = country_df$state[(end_idx+1):end_T_T_1]
   
   transition_probs = estimate_transition_probabilities(mm_seq_calib, 4)
   
@@ -200,73 +180,40 @@ get_likelihood_set_prop = function(end_id, ctr_id, data) {
   # normalize to proportions (so each column sums to 1)
   ctr_prop <- sweep(ctr_res, 2, colSums(ctr_res), "/")
   
-  return(ctr_prop)
-}
-
-get_cp_set_mat = function(end_id, add_zero) {
+  cp_set_matrix = do.call('rbind', cp_set)
+  cp_set_matrix_prop = rbind(apply(cp_set_matrix, 2, function(x) {mean(x == 0)}),
+                             apply(cp_set_matrix, 2, function(x) {mean(x == 1)}),
+                             apply(cp_set_matrix, 2, function(x) {mean(x == 2)}),
+                             apply(cp_set_matrix, 2, function(x) {mean(x == 3)}))
+  rownames(cp_set_matrix_prop) <- paste("State", 1:4)       # give row-names  
   
-  cp_set_results = list()
+  # Check if true sequence is in prediction set
+  contains_true_seq = any(apply(cp_set_matrix, 1, function(row) all(row == true_forecast_seq)))
   
-  for (country in countries) {
-    
-    country_df = data1[data1$country_id == country,]
-    country_name = country_df[[1, "name"]]
-    
-    ctr_prop <- get_cp_set_prop(end_id, add_zero, country, data1)
-    cp_set_results[[country_name]] <- ctr_prop
-    print(
-      paste(
-        "FINISHED Country:", country_name
-      )
-    )
-    
-  }
+  
+  cp_set_results = list("ctr_prop" = ctr_prop,
+                        "cp_set_matrix_prop" = cp_set_matrix_prop,
+                        "cardinality_cp_set" = nrow(cp_set_matrix),
+                        "contains_true_seq"  = contains_true_seq)
   
   return(cp_set_results)
-  
 }
 
-likelihood_set = function(end_id) {
-  likelihood_set_results = list()
-  
-  for (country in countries) {
-    
-    country_df = data1[data1$country_id == country,]
-    country_name = country_df[[1, "name"]]
-    
-    ctr_prop <- get_likelihood_set_prop(end_id, country, data1)
-    likelihood_set_results[[country_name]] <- ctr_prop
-    print(
-      paste(
-        "FINISHED Country:", country_name
-      )
-    )
-    
-  }
-  
-  return(likelihood_set_results)
-}
 
-compare_set = function(end_id) {
-  
-  comp_set_results = list()
-  approaches = c("CP Set", "Likelihood Set", "CP Set & Added P")
-  
-  country_df = data2[data2$country_id == 66,]
-  country_name = country_df[[1, "name"]]
-  
-  prop1 <- get_cp_set_prop(end_id, FALSE, 66, data2)
-  comp_set_results[["CP Set"]] <- prop1
-  
-  prop2 <- get_likelihood_set_prop(end_id, 66, data2)
-  comp_set_results[["Likelihood Set"]] <- prop2
-  
-  prop3 <- get_cp_set_prop(end_id, TRUE, 66, data2)
-  comp_set_results[["CP Set & Added P"]] <- prop3
-  
-  return(comp_set_results)
-  
-}
+# Getting all of the results ---------------------------------------------------
+end_id = end1
+
+country_df = data2[data2$country_id == 66,]
+country_name = country_df[[1, "name"]]
+
+prop1 <- get_cp_set_prop(end_id, FALSE, 66, data2)
+comp_set_results[["CP Set"]] <- prop1
+
+prop2 <- get_likelihood_set_prop(end_id, 66, data2)
+comp_set_results[["Likelihood Set"]] <- prop2
+
+prop3 <- get_cp_set_prop(end_id, TRUE, 66, data2)
+comp_set_results[["CP Set & Added P"]] <- prop3
 
 # COMPARISON SET RESULTS
 comp_set_results_fatality = compare_set(end1)
