@@ -152,7 +152,7 @@ likelihood_rel_curve <- function() {
         probs <- apply(grid_df, 1L, path_prob)
         
         # 2) order by likelihood (desc)
-        ord <- order(probs, decreasing = TRUE)
+        ord <- order(-probs, runif(length(probs)), method = "radix")
         probs_ord <- probs[ord]
         
         # 3) take top few so that cumulative >= 1 - alpha (prefer overshoot)

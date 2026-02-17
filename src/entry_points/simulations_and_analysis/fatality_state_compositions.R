@@ -68,7 +68,20 @@ get_cp_set_prop = function(end_id, add_zero, ctr_id, data) {
   
   ctr_prop <- sweep(ctr_res, 2, colSums(ctr_res), "/")
   
-  return(ctr_prop)
+  n_cp_set <- length(cp_set)
+  
+  true_in_cp <- FALSE
+  true_states <- mk_pairs(country_df[["state"]][true_idx])
+  true_states <- as.integer(true_states)
+  if (!is.null(true_states)) {
+    true_in_cp <- any(sapply(cp_set, function(seq) identical(seq, true_states)))
+  }
+  
+  return(list(
+    ctr_prop   = ctr_prop,
+    n_cp_set   = n_cp_set,
+    true_in_cp = true_in_cp
+  ))
   
 }
 
@@ -114,7 +127,7 @@ get_likelihood_set_prop = function(end_id, ctr_id, data) {
   probs <- apply(grid_df, 1L, path_prob)
   
   # 2) order by likelihood (desc)
-  ord <- order(probs, decreasing = TRUE)
+  ord <- order(-probs, runif(length(probs)), method = "radix")
   probs_ord <- probs[ord]
   
   # 3) take top few so that cumulative >= 1 - alpha (prefer overshoot)
@@ -151,7 +164,20 @@ get_likelihood_set_prop = function(end_id, ctr_id, data) {
   # normalize to proportions (so each column sums to 1)
   ctr_prop <- sweep(ctr_res, 2, colSums(ctr_res), "/")
   
-  return(ctr_prop)
+  n_lik_set <- length(cp_set)
+  
+  true_in_lik <- FALSE
+  true_states <- mk_pairs(country_df[["state"]][true_idx])
+  true_states <- as.integer(true_states)
+  if (!is.null(true_states)) {
+    true_in_lik <- any(sapply(cp_set, function(seq) identical(seq, true_states)))
+  }
+  
+  return(list(
+    ctr_prop    = ctr_prop,
+    n_lik_set   = n_lik_set,
+    true_in_lik = true_in_lik
+  ))
 }
 
 
@@ -161,81 +187,156 @@ get_likelihood_set_prop = function(end_id, ctr_id, data) {
 get_cp_set_mat = function(end_id, add_zero) {
   
   cp_set_results = list()
+  summary_rows <- list()   # will become the per-country summary table
   
   for (country in countries) {
     
     country_df = data1[data1$country_id == country,]
     country_name = country_df[[1, "name"]]
     
-    ctr_prop <- get_cp_set_prop(end_id, add_zero, country, data1)
-    cp_set_results[[country_name]] <- ctr_prop
-    print(
-      paste(
-        "FINISHED Country:", country_name
-      )
+    # get CP results + diagnostics
+    res_cp <- get_cp_set_prop(end_id, add_zero, country, data1)
+    
+    # 1) keep the proportions matrix as before
+    cp_set_results[[country_name]] <- res_cp$ctr_prop
+    
+    # 2) store per-country summary row
+    summary_rows[[country_name]] <- tibble::tibble(
+      country_id   = country,
+      country_name = country_name,
+      n_cp_set     = res_cp$n_cp_set,
+      true_in_cp   = res_cp$true_in_cp
     )
     
+    print(paste("FINISHED Country:", country_name))
   }
   
-  return(cp_set_results)
+  # bind all rows into one table
+  cp_set_summary <- dplyr::bind_rows(summary_rows)
   
+  # return both objects
+  return(list(
+    cp_set_results = cp_set_results,
+    cp_set_summary = cp_set_summary
+  ))
 }
 
 likelihood_set = function(end_id) {
+  
   likelihood_set_results = list()
+  summary_rows <- list()
   
   for (country in countries) {
     
     country_df = data1[data1$country_id == country,]
     country_name = country_df[[1, "name"]]
     
-    ctr_prop <- get_likelihood_set_prop(end_id, country, data1)
-    likelihood_set_results[[country_name]] <- ctr_prop
-    print(
-      paste(
-        "FINISHED Country:", country_name
-      )
+    res_lik <- get_likelihood_set_prop(end_id, country, data1)
+    
+    # keep proportions matrix
+    likelihood_set_results[[country_name]] <- res_lik$ctr_prop
+    
+    # per-country summary row
+    summary_rows[[country_name]] <- tibble::tibble(
+      country_id   = country,
+      country_name = country_name,
+      n_lik_set    = res_lik$n_lik_set,
+      true_in_lik  = res_lik$true_in_lik
     )
     
+    print(paste("FINISHED Country:", country_name))
   }
   
-  return(likelihood_set_results)
+  likelihood_set_summary <- dplyr::bind_rows(summary_rows)
+  
+  return(list(
+    likelihood_set_results = likelihood_set_results,
+    likelihood_set_summary = likelihood_set_summary
+  ))
 }
 
 compare_set = function(end_id) {
   
   comp_set_results = list()
-  approaches = c("CP Set", "Likelihood Set", "CP Set & Added P")
-    
+  
   country_df = data2[data2$country_id == 66,]
   country_name = country_df[[1, "name"]]
   
-  prop1 <- get_cp_set_prop(end_id, FALSE, 66, data2)
-  comp_set_results[["CP Set"]] <- prop1
+  # CP Set
+  res1 <- get_cp_set_prop(end_id, FALSE, 66, data2)
+  comp_set_results[["CP Set"]] <- res1$ctr_prop
   
-  prop2 <- get_likelihood_set_prop(end_id, 66, data2)
-  comp_set_results[["Likelihood Set"]] <- prop2
+  # CP Set & Added P
+  res2 <- get_cp_set_prop(end_id, TRUE, 66, data2)
+  comp_set_results[["CP Set & Added 1"]] <- res2$ctr_prop
   
-  prop3 <- get_cp_set_prop(end_id, TRUE, 66, data2)
-  comp_set_results[["CP Set & Added P"]] <- prop3
-
-  return(comp_set_results)
+  # Likelihood Set
+  res3 <- get_likelihood_set_prop(end_id, 66, data2)
+  comp_set_results[["Likelihood Set"]] <- res3$ctr_prop
   
+  
+  
+  # one-row summary table for this country
+  comp_set_summary <- tibble::tibble(
+    set_type = c("CP Set", "CP Set & Added 1", "Likelihood Set"),
+    num      = c(res1$n_cp_set, res2$n_cp_set, res3$n_lik_set),
+    true_in  = c(res1$true_in_cp, res2$true_in_cp, res3$true_in_lik)
+  )
+  
+  return(list(
+    comp_set_results = comp_set_results,
+    comp_set_summary = comp_set_summary
+  ))
 }
 
+data_dir = "outputs/r_objects"
+
+# -----------------------
 # CP SET RESULTS
-cp_set_results_fatality <- get_cp_set_mat(end1, FALSE) # A1
-data_dir = "outputs/r_objects"
-saveRDS(cp_set_results_fatality, file.path(data_dir, "fatality_cp_compositions.rds"))
+# -----------------------
+cp_out_fatality <- get_cp_set_mat(end1, FALSE) # A1
+
+# save the whole object (results + summary)
+saveRDS(cp_out_fatality, file.path(data_dir, "fatality_cp_compositions.rds"))
+
+# ALSO save the summary table separately
+saveRDS(cp_out_fatality$cp_set_summary,
+        file.path(data_dir, "fatality_cp_summary.rds"))
+
+# (optional) save compositions-only separately
+saveRDS(cp_out_fatality$cp_set_results,
+        file.path(data_dir, "fatality_cp_compositions_only.rds"))
 
 
+# -----------------------
 # LIKELIHOOD SET RESULTS
-likelihood_sum_set_results_fatality = likelihood_set(end1) # A3
-data_dir = "outputs/r_objects"
-saveRDS(likelihood_sum_set_results_fatality, file.path(data_dir, "fatality_likelihood_compositions.rds"))
+# -----------------------
+lik_out_fatality <- likelihood_set(end1) # A3
+
+# save the whole object (results + summary)
+saveRDS(lik_out_fatality, file.path(data_dir, "fatality_likelihood_compositions.rds"))
+
+# ALSO save the summary table separately
+saveRDS(lik_out_fatality$likelihood_set_summary,
+        file.path(data_dir, "fatality_likelihood_summary.rds"))
+
+# (optional) save compositions-only separately
+saveRDS(lik_out_fatality$likelihood_set_results,
+        file.path(data_dir, "fatality_likelihood_compositions_only.rds"))
 
 
+# -----------------------
 # COMPARISON SET RESULTS
-comp_set_results_fatality = compare_set(end1)
-data_dir = "outputs/r_objects"
-saveRDS(comp_set_results_fatality, file.path(data_dir, "fatality_comp_compositions.rds"))
+# -----------------------
+comp_out_fatality <- compare_set(end1)
+
+# save the whole object (results + summary)
+saveRDS(comp_out_fatality, file.path(data_dir, "fatality_comp_compositions.rds"))
+
+# ALSO save the summary table separately
+saveRDS(comp_out_fatality$comp_set_summary,
+        file.path(data_dir, "fatality_comp_summary.rds"))
+
+# (optional) save compositions-only separately
+saveRDS(comp_out_fatality$comp_set_results,
+        file.path(data_dir, "fatality_comp_compositions_only.rds"))

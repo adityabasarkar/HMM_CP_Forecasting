@@ -97,37 +97,6 @@ get_cp_set_mat = function() {
   ctr_prop <- sweep(ctr_res, 2, colSums(ctr_res), "/")
   cp_set_results[["CP Set"]] <- ctr_prop
   
-  
-  # #---------------------------------------
-  # # cp set with added zero
-  # allowable_transitions <- matrix(
-  #   c(1,1,0,0,
-  #     0,0,1,1,
-  #     0,0,1,1,
-  #     1,1,0,0),
-  #   nrow = 4,
-  #   ncol = 4,
-  #   byrow = TRUE
-  # )
-  # cp_set <- get_cp_set(mm_seq_calib, c(0), T1, 1000, 4, 4, alpha, TRUE, "mm", allowable_transitions)
-  # 
-  # ctr_res <- matrix(0, nrow = 4, ncol = T1)        # set all entries to 0  
-  # rownames(ctr_res) <- paste("State", 1:4)       # give row-names  
-  # true_states = unlist(mm_seq)[(calib_len + 1):(calib_len + T1)]
-  # colnames(ctr_res) <- paste0(
-  #   "tp=", 1:T1, ", TS=", true_states+1
-  # )  
-  # 
-  # for (seq in cp_set) {
-  #   for (t in seq_along(seq)) {
-  #     state <- seq[t]
-  #     ctr_res[state+1, t] <- ctr_res[state+1, t] + 1
-  #   }
-  # }
-  # 
-  # ctr_prop <- sweep(ctr_res, 2, colSums(ctr_res), "/")
-  # cp_set_results[["Added Zero"]] <- ctr_prop
-  
   #---------------------------------------
   # cp set  with likelihood
   transition_probs = estimate_transition_probabilities(mm_seq_calib, 4)
@@ -153,7 +122,7 @@ get_cp_set_mat = function() {
   probs <- apply(grid_df, 1L, path_prob)
   
   # 2) order by likelihood (desc)
-  ord <- order(probs, decreasing = TRUE)
+  ord <- order(-probs, runif(length(probs)), method = "radix")
   probs_ord <- probs[ord]
   
   # 3) take top few so that cumulative >= 1 - alpha (prefer overshoot)
@@ -163,7 +132,7 @@ get_cp_set_mat = function() {
   if (is.na(k)) k <- length(probs_ord)  # if total < target due to zeros, take all
   
   # selected candidate set (each is a length-T1 future sequence, without the start state)
-  cp_set <- lapply(seq_len(k), function(j) as.integer(grid_df[ord[j], ]))
+  lik_set <- lapply(seq_len(k), function(j) as.integer(grid_df[ord[j], ]))
   
   ctr_res <- matrix(0, nrow = 4, ncol = T1)        # set all entries to 0  
   rownames(ctr_res) <- paste("State", 1:4)       # give row-names  
@@ -172,7 +141,7 @@ get_cp_set_mat = function() {
     "tp=", 1:T1, ", TS=", true_states+1
   )  
   
-  for (seq in cp_set) {
+  for (seq in lik_set) {
     for (t in seq_along(seq)) {
       state <- seq[t]
       ctr_res[state+1, t] <- ctr_res[state+1, t] + 1
@@ -186,10 +155,34 @@ get_cp_set_mat = function() {
   
   print("FINISHED")
 
-  return(cp_set_results)
+  return(list(
+    cp_set_results = cp_set_results,
+    cp_set = cp_set,
+    lik_set = lik_set
+  ))
 }
 
-mc_cp_set_results1 <- get_cp_set_mat() # C1, C2, C3
+res <- get_cp_set_mat() # C1, C2, C3
+mc_cp_set_results1 <- res$cp_set_results
+cp_set <- res$cp_set
+lik_set <- res$lik_set
+
+true_states <- as.integer(sub(".*TS=", "", colnames(mc_cp_set_results1[[1]])))
+true_states <- true_states - 1L           # keep integer arithmetic
+true_states <- as.integer(true_states)    # belt-and-suspenders
+
+is_true_in_cp <- any(sapply(cp_set, function(seq) identical(seq, true_states)))
+is_true_in_cp
+is_true_in_lik <- any(sapply(lik_set, function(seq) identical(seq, true_states)))
+is_true_in_lik
+
+sum_table_mc_sim <- tibble::tibble(
+  set_type = c("CP Set", "Likelihood Set"),
+  num      = c(length(cp_set), length(lik_set)),
+  true_in  = c(is_true_in_cp, is_true_in_lik)
+)
 
 data_dir = "outputs/r_objects"
 saveRDS(mc_cp_set_results1, file.path(data_dir, "sim_compare_compositions.rds"))
+saveRDS(sum_table_mc_sim,
+        file.path(data_dir, "sim_compare_set_summary_table.rds"))
