@@ -2,6 +2,11 @@ library(arrow)
 library(dplyr)
 library(tibble)
 
+library(ggplot2)
+library(tidyr)
+library(stringr)
+library(scales)
+
 library(Rcpp, quietly=T)
 library(RcppArmadillo, quietly = T)
 library(RcppDist, quietly = T)
@@ -41,6 +46,7 @@ get_cp_set_prop = function(end_id, add_zero, ctr_id, data) {
   
   end_T_T_1 <- which(country_df$month_id == (end_id+T1))
   true_forecast_seq = country_df$state[(end_idx+1):end_T_T_1]
+  true_forecast_seq = true_forecast_seq - 1 # reduce state index from 1,2,3,4 to 0,1,2,3
   
   # cp set 1
   allowable_transitions <- matrix(
@@ -91,6 +97,7 @@ get_cp_set_prop = function(end_id, add_zero, ctr_id, data) {
   
   cp_set_results = list("ctr_prop" = ctr_prop,
                         "cp_set_matrix_prop" = cp_set_matrix_prop,
+                        "cp_set_matrix" = cp_set_matrix,
                         "cardinality_cp_set" = nrow(cp_set_matrix),
                         "contains_true_seq"  = contains_true_seq)
   
@@ -109,6 +116,7 @@ get_likelihood_set_prop = function(end_id, ctr_id, data) {
   
   end_T_T_1 <- which(country_df$month_id == (end_id+T1))
   true_forecast_seq = country_df$state[(end_idx+1):end_T_T_1]
+  true_forecast_seq = true_forecast_seq - 1 # reduce state index from 1,2,3,4 to 0,1,2,3
   
   transition_probs = estimate_transition_probabilities(mm_seq_calib, 4)
   
@@ -193,6 +201,7 @@ get_likelihood_set_prop = function(end_id, ctr_id, data) {
   
   cp_set_results = list("ctr_prop" = ctr_prop,
                         "cp_set_matrix_prop" = cp_set_matrix_prop,
+                        "cp_set_matrix" = cp_set_matrix,
                         "cardinality_cp_set" = nrow(cp_set_matrix),
                         "contains_true_seq"  = contains_true_seq)
   
@@ -201,21 +210,136 @@ get_likelihood_set_prop = function(end_id, ctr_id, data) {
 
 
 # Getting all of the results ---------------------------------------------------
-end_id = end1
 
-country_df = data2[data2$country_id == 66,]
-country_name = country_df[[1, "name"]]
+prop1 <- get_cp_set_prop(end1, FALSE, 66, data2); print(paste0("CP full --> ", prop1$cardinality_cp_set))
+prop2 <- get_likelihood_set_prop(end1, 66, data2); print(paste0("Likelihood full --> ", prop2$cardinality_cp_set))
+prop3 <- get_cp_set_prop(end1, TRUE, 66, data2); print(paste0("CP+0 full --> ", prop3$cardinality_cp_set))
 
-prop1 <- get_cp_set_prop(end_id, FALSE, 66, data2)
-comp_set_results[["CP Set"]] <- prop1
+# Getting all of the results with less training data ---------------------------
 
-prop2 <- get_likelihood_set_prop(end_id, 66, data2)
-comp_set_results[["Likelihood Set"]] <- prop2
+sweden = data2[data2$country_id == 66, ]
+sweden_small = sweden[sweden$month_id >= 535, ]
 
-prop3 <- get_cp_set_prop(end_id, TRUE, 66, data2)
-comp_set_results[["CP Set & Added P"]] <- prop3
+prop1_small <- get_cp_set_prop(end1, FALSE, 66, sweden_small); print(paste0("CP small --> ", prop1_small$cardinality_cp_set))
+prop2_small <- get_likelihood_set_prop(end1, 66, sweden_small); print(paste0("Likelihood small --> ", prop2_small$cardinality_cp_set))
+prop3_small <- get_cp_set_prop(end1, TRUE, 66, sweden_small); print(paste0("CP+0 small --> ", prop3_small$cardinality_cp_set))
 
-# COMPARISON SET RESULTS
-comp_set_results_fatality = compare_set(end1)
-data_dir = "outputs/r_objects"
-saveRDS(comp_set_results_fatality, file.path(data_dir, "fatality_comp_compositions.rds"))
+# Plotting the results ---------------------------------------------------------
+
+df_all_train = data.frame("State" = rep(c(rep("State 1", T1), rep("State 2", T1), rep("State 3", T1), rep("State 4", T1)), 3), 
+                          "colname" = c(rep(colnames(prop1$ctr_prop), 4), rep(colnames(prop2$ctr_prop), 4), rep(colnames(prop3$ctr_prop), 4)),
+                          "Proportion" = c(c(t(prop1$ctr_prop)), c(t(prop2$ctr_prop)), c(t(prop3$ctr_prop))),
+                          "tp" = rep(1:T1, 4 * 3),
+                          "TS" = rep(1, T1 * 4 * 3),
+                          "Country" = c(rep("Conformal Prediction", T1 * 4), rep("Likelihood-Based Prediction", T1 * 4), rep("Conformal Prediction + 0", T1*4)),
+                          "tp_factor" = rep(paste0("T + ", 1:T1), 4 * 3))
+df_all_train$Country <- factor(df_all_train$Country, 
+                   levels = unique(df_all_train$Country))
+
+df_small = data.frame("State" = rep(c(rep("State 1", T1), rep("State 2", T1), rep("State 3", T1), rep("State 4", T1)), 3), 
+                      "colname" = c(rep(colnames(prop1_small$ctr_prop), 4), rep(colnames(prop2_small$ctr_prop), 4), rep(colnames(prop3_small$ctr_prop), 4)),
+                      "Proportion" = c(c(t(prop1_small$ctr_prop)), c(t(prop2_small$ctr_prop)), c(t(prop3_small$ctr_prop))),
+                      "tp" = rep(1:T1, 4 * 3),
+                      "TS" = rep(1, T1 * 4 * 3),
+                      "Country" = c(rep("Conformal Prediction", T1 * 4), rep("Likelihood-Based Prediction", T1 * 4), rep("Conformal Prediction + 0", T1*4)),
+                      "tp_factor" = rep(paste0("T + ", 1:T1), 4 * 3))
+df_small$Country <- factor(df_small$Country, 
+                               levels = unique(df_small$Country))
+
+
+plot_cp_results <- function(df, main_title, subtitle = NULL) {
+  
+  # state names + colors
+  state_labels <- c(
+    "State 1" = "Peaceful (1)",
+    "State 2" = "Escalation (2)",
+    "State 3" = "War (3)",
+    "State 4" = "De-escalation (4)"
+  )
+  
+  state_colors <- c(
+    "State 1" = "skyblue2",
+    "State 2" = "darkorange2",
+    "State 3" = "firebrick2",
+    "State 4" = "seagreen3"
+  )
+  
+  ts_labels <- df %>%
+    dplyr::distinct(Country, tp, tp_factor, TS) %>%
+    dplyr::filter(!is.na(TS)) %>%         
+    dplyr::mutate(
+      TS_label = dplyr::case_when(
+        TS == 1L ~ "1",
+        TS == 2L ~ "2",
+        TS == 3L ~ "3",
+        TS == 4L ~ "4"
+      ),
+      TS_state = factor(paste("State", TS),
+                        levels = names(state_colors))
+    )
+  
+  ggplot(df, aes(x = tp_factor, y = Proportion, fill = State)) +
+    geom_col(width = 0.8) +
+    # TS label just above the bar, bold
+    geom_text(
+      data = ts_labels,
+      aes(x = tp_factor, y = 1.02, label = TS_label, color = TS_state),
+      inherit.aes = FALSE,
+      vjust = 0,              # anchor at y = 1.02 baseline
+      size = 3.0,
+      fontface = "bold"
+    ) +
+    # allow a little extra space above 1.0 for the labels
+    scale_y_continuous(
+      limits = c(0, 1.1),
+      breaks = seq(0, 1, by = 0.25),
+      labels = scales::percent_format(accuracy = 1),
+      expand = expansion(mult = c(0, 0.02))
+    ) +
+    # don't clip the TS labels at the top of each panel
+    coord_cartesian(clip = "off") +
+    scale_fill_manual(
+      values = state_colors,
+      labels = state_labels,
+      name   = "State"
+    ) +
+    scale_color_manual(
+      values = state_colors,
+      guide  = "none"
+    ) +
+    facet_wrap(~ Country, ncol = length(unique(ts_labels$Country))) +
+    labs(
+      title    = main_title,
+      subtitle = subtitle,
+      x        = NULL,
+      y        = "Percentage"
+    ) +
+    theme_bw(base_size = 11) +
+    theme(
+      plot.title    = element_text(hjust = 0.5, face = "bold", size = 16),
+      plot.subtitle = element_text(hjust = 0.5, size = 10),
+      strip.background = element_blank(),
+      strip.text       = element_text(face = "bold", size = 11),
+      axis.text.x      = element_text(size = 9, margin = margin(t = 4)),
+      axis.text.y      = element_text(size = 9),
+      legend.position  = "bottom",
+      legend.title     = element_text(face = "bold"),
+      panel.spacing    = unit(1.1, "lines"),
+      plot.margin      = margin(t = 24, r = 12, b = 12, l = 12)
+    )
+}
+
+p4 <- plot_cp_results(
+  df_all_train,
+  "Prediction Sets of Forecasted Conflict State-Sequences (T = 420)",
+  "Real Conflict Data, alpha = 0.2"
+)
+
+p5 <- plot_cp_results(
+  df_small,
+  "Prediction Sets of Forecasted Conflict State-Sequences (T = 6)",
+  "Real Conflict Data, alpha = 0.2"
+)
+
+ggsave("outputs/plots/limitation_large.pdf", p4, width = 12, height = 6, units = "in", device = "pdf")
+ggsave("outputs/plots/limitation_small.pdf", p5, width = 12, height = 6, units = "in", device = "pdf")
