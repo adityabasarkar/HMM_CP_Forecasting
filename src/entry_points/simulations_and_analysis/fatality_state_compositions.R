@@ -23,7 +23,7 @@ set.seed(2569)
 
 
 mk_pairs <- function(states_vec) lapply(states_vec, function(s) s-1)
-get_cp_set_prop = function(end_id, add_zero, ctr_id, data) {
+get_cp_set_prop = function(end_id, add_zero, ctr_id, data, coinflip = TRUE) {
   
   country_df = data[data$country_id == ctr_id,]
   
@@ -42,7 +42,7 @@ get_cp_set_prop = function(end_id, add_zero, ctr_id, data) {
     ncol = 4,
     byrow = TRUE
   )
-  cp_set <- get_cp_set(mm_seq_calib, c(0), T1, 1000, 4, 4, alpha, add_zero, "mm", allowable_transitions)
+  cp_set <- get_cp_set(mm_seq_calib, c(0), T1, 1000, 4, 4, alpha, add_zero, "mm", allowable_transitions, coinflip)
   
   ctr_res <- matrix(0, nrow = 4, ncol = T1)        # set all entries to 0  
   rownames(ctr_res) <- paste("State", 1:4)       # give row-names  
