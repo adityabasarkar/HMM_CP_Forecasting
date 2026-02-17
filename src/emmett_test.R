@@ -16,8 +16,6 @@ data_clean = readRDS(file.path("outputs/r_objects/preprocessed_data.rds"))
 data_full  = readRDS(file.path("outputs/r_objects/preprocessed_data_full.rds"))
 data_full  = data_full[!is.na(data_full$name), , drop=F]
 
-sweden = data_full[data_full$name == "Sweden", , drop=F]
-
 sourceCpp("src/cpp_files/hmm_conf_pred_final.cpp")
 
 data_dir = "outputs/r_objects"
@@ -232,7 +230,7 @@ df_all_train = data.frame("State" = rep(c(rep("State 1", T1), rep("State 2", T1)
                           "tp" = rep(1:T1, 4 * 3),
                           "TS" = rep(1, T1 * 4 * 3),
                           "Country" = c(rep("Conformal Prediction", T1 * 4), rep("Likelihood-Based Prediction", T1 * 4), rep("Conformal Prediction + 0", T1*4)),
-                          "tp_factor" = rep(paste0("T + ", 1:T1), 4 * 3))
+                          "tp_factor" = rep(paste0("T+", 1:T1), 4 * 3))
 df_all_train$Country <- factor(df_all_train$Country, 
                    levels = unique(df_all_train$Country))
 
@@ -242,7 +240,7 @@ df_small = data.frame("State" = rep(c(rep("State 1", T1), rep("State 2", T1), re
                       "tp" = rep(1:T1, 4 * 3),
                       "TS" = rep(1, T1 * 4 * 3),
                       "Country" = c(rep("Conformal Prediction", T1 * 4), rep("Likelihood-Based Prediction", T1 * 4), rep("Conformal Prediction + 0", T1*4)),
-                      "tp_factor" = rep(paste0("T + ", 1:T1), 4 * 3))
+                      "tp_factor" = rep(paste0("T+", 1:T1), 4 * 3))
 df_small$Country <- factor(df_small$Country, 
                                levels = unique(df_small$Country))
 
@@ -251,10 +249,10 @@ plot_cp_results <- function(df, main_title, subtitle = NULL) {
   
   # state names + colors
   state_labels <- c(
-    "State 1" = "Peaceful (1)",
-    "State 2" = "Escalation (2)",
-    "State 3" = "War (3)",
-    "State 4" = "De-escalation (4)"
+    "State 1" = "State 1 (Peaceful)",
+    "State 2" = "State 2 (Escalation)",
+    "State 3" = "State 3 (War)",
+    "State 4" = "State 4 (Deescalation)"
   )
   
   state_colors <- c(
@@ -341,5 +339,5 @@ p5 <- plot_cp_results(
   "Real Conflict Data, alpha = 0.2"
 )
 
-ggsave("outputs/plots/limitation_large.pdf", p4, width = 12, height = 6, units = "in", device = "pdf")
-ggsave("outputs/plots/limitation_small.pdf", p5, width = 12, height = 6, units = "in", device = "pdf")
+ggsave("outputs/plots/limitation_large.pdf", p4, width = 12, height = 4, units = "in", device = "pdf")
+ggsave("outputs/plots/limitation_small.pdf", p5, width = 12, height = 4, units = "in", device = "pdf")
