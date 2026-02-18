@@ -235,7 +235,7 @@ for(coinflip in c(TRUE,FALSE)) {
                             "Proportion" = c(c(t(prop1$ctr_prop)), c(t(prop2$ctr_prop)), c(t(prop3$ctr_prop))),
                             "tp" = rep(1:T1, 4 * 3),
                             "TS" = rep(1, T1 * 4 * 3),
-                            "Country" = c(rep("Conformal Prediction", T1 * 4), rep("Likelihood-Based Prediction", T1 * 4), rep("Conformal Prediction + 0", T1*4)),
+                            "Country" = c(rep("Conformal Prediction", T1 * 4), rep("Likelihood-Based Prediction", T1 * 4), rep("Conformal Prediction + 1", T1*4)),
                             "tp_factor" = rep(paste0("T+", 1:T1), 4 * 3))
   df_all_train$Country <- factor(df_all_train$Country, 
                                  levels = unique(df_all_train$Country))
@@ -245,7 +245,7 @@ for(coinflip in c(TRUE,FALSE)) {
                         "Proportion" = c(c(t(prop1_small$ctr_prop)), c(t(prop2_small$ctr_prop)), c(t(prop3_small$ctr_prop))),
                         "tp" = rep(1:T1, 4 * 3),
                         "TS" = rep(1, T1 * 4 * 3),
-                        "Country" = c(rep("Conformal Prediction", T1 * 4), rep("Likelihood-Based Prediction", T1 * 4), rep("Conformal Prediction + 0", T1*4)),
+                        "Country" = c(rep("Conformal Prediction", T1 * 4), rep("Likelihood-Based Prediction", T1 * 4), rep("Conformal Prediction + 1", T1*4)),
                         "tp_factor" = rep(paste0("T+", 1:T1), 4 * 3))
   df_small$Country <- factor(df_small$Country, 
                              levels = unique(df_small$Country))
