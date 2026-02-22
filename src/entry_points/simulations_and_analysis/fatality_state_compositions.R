@@ -25,6 +25,7 @@ set.seed(2569)
 mk_pairs <- function(states_vec) lapply(states_vec, function(s) s-1)
 get_cp_set_prop = function(end_id, add_zero, ctr_id, data, coinflip = TRUE) {
   
+  set.seed(2569)
   country_df = data[data$country_id == ctr_id,]
   
   end_idx <- which(country_df$month_id == end_id)
@@ -87,6 +88,7 @@ get_cp_set_prop = function(end_id, add_zero, ctr_id, data, coinflip = TRUE) {
 
 get_likelihood_set_prop = function(end_id, ctr_id, data) {
   
+  set.seed(2569)
   country_df = data[data$country_id == ctr_id,]
   
   end_idx <- which(country_df$month_id == end_id)
@@ -294,7 +296,7 @@ data_dir = "outputs/r_objects"
 # -----------------------
 # CP SET RESULTS
 # -----------------------
-cp_out_fatality <- get_cp_set_mat(end1, FALSE) # A1
+cp_out_fatality <- get_cp_set_mat(end2, FALSE) # A1
 
 # save the whole object (results + summary)
 saveRDS(cp_out_fatality, file.path(data_dir, "fatality_cp_compositions.rds"))
@@ -311,7 +313,7 @@ saveRDS(cp_out_fatality$cp_set_results,
 # -----------------------
 # LIKELIHOOD SET RESULTS
 # -----------------------
-lik_out_fatality <- likelihood_set(end1) # A3
+lik_out_fatality <- likelihood_set(end2) # A3
 
 # save the whole object (results + summary)
 saveRDS(lik_out_fatality, file.path(data_dir, "fatality_likelihood_compositions.rds"))

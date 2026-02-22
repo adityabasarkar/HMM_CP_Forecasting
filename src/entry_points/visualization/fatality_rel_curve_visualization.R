@@ -43,7 +43,7 @@ p_cp <- ggplot(
     y = "Empirical coverage",
     color = "Test length",
     title = "Reliability curves – CP sets",
-    subtitle = "Fatality Data"
+    subtitle = "Conflict State Data"
   ) +
   coord_equal(xlim = c(0.5, 1), ylim = c(0.5, 1)) +
   theme_minimal()
@@ -65,7 +65,7 @@ p_lik <- ggplot(
     y = "Empirical coverage",
     color = "Test length",
     title = "Reliability curves – Likelihood-based sets",
-    subtitle = "Fatality Data"
+    subtitle = "Conflict State Data"
   ) +
   coord_equal(xlim = c(0.5, 1), ylim = c(0.5, 1)) +
   theme_minimal()

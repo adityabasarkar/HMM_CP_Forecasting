@@ -76,7 +76,7 @@ plot_cp_results <- function(df, main_title, subtitle = NULL, summary_df = NULL) 
     "State 1" = "State 1 (Peaceful)",
     "State 2" = "State 2 (Escalation)",
     "State 3" = "State 3 (War)",
-    "State 4" = "State 4 (De-escalation)"
+    "State 4" = "State 4 (Deescalation)"
   )
   
   state_colors <- c(
@@ -160,7 +160,7 @@ plot_cp_results <- function(df, main_title, subtitle = NULL, summary_df = NULL) 
       title    = main_title,
       subtitle = subtitle,
       x        = NULL,
-      y        = "Percentage of Candidates"
+      y        = "Percentage"
     ) +
     theme_bw(base_size = 11) +
     theme(
@@ -194,29 +194,29 @@ df4 <- cp_results_to_df(sim_mats)
 p1 <- plot_cp_results(
   df1,
   "State Composition Across Prediction Horizon for CP Sets",
-  "Fatality Data, alpha = 0.2",
-  summary_df = cp_sum
+  "Conflict State Data, alpha = 0.2",
+  summary_df = NULL
 )
 
 p2 <- plot_cp_results(
   df2,
   "State Composition Across Prediction Horizon for Likelihood Sets",
-  "Fatality Data, alpha = 0.2",
-  summary_df = lik_sum
+  "Conflict State Data, alpha = 0.2",
+  summary_df = NULL
 )
 
 p3 <- plot_cp_results(
   df3,
   "Edge Case Approach Comparison",
-  "Fatality Data, Sweden, alpha = 0.2",
-  summary_df = cmp_sum
+  "Conflict State Data, Sweden, alpha = 0.2",
+  summary_df = NULL
 )
 
 p4 <- plot_cp_results(
   df4,
   "Comparison of State Compositions between CP Sets and Likelihood Sets",
   "Simulated Data, alpha = 0.2",
-  summary_df = sim_sum   # will show if sim_compare_summary.rds exists, otherwise no footer
+  summary_df = NULL   # will show if sim_compare_summary.rds exists, otherwise no footer
 )
 
 # Save to PDF
