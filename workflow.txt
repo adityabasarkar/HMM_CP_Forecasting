@@ -1,4 +1,4 @@
-Program execution order:
+Program execution order (ensure the working directory is the folder containing the README.md and workflow.txt files):
 
 1. Preprocessing
 	a. src/entry_points/preprocessing/preprocess.R

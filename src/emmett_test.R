@@ -33,7 +33,7 @@ set.seed(2569)
 
 mk_pairs <- function(states_vec) lapply(states_vec, function(s) s-1)
 
-get_cp_set_prop = function(end_id, add_zero, ctr_id, data) {
+get_cp_set_prop = function(end_id, add_zero, ctr_id, data, coinflip = TRUE) {
   
   country_df = data[data$country_id == ctr_id,]
   
@@ -56,7 +56,7 @@ get_cp_set_prop = function(end_id, add_zero, ctr_id, data) {
     ncol = 4,
     byrow = TRUE
   )
-  cp_set <- get_cp_set(mm_seq_calib, c(0), T1, 1000, 4, 4, alpha, add_zero, "mm", allowable_transitions)
+  cp_set <- get_cp_set(mm_seq_calib, c(0), T1, 1000, 4, 4, alpha, add_zero, "mm", allowable_transitions, coinflip)
   
   ctr_res <- matrix(0, nrow = 4, ncol = T1)        # set all entries to 0  
   rownames(ctr_res) <- paste("State", 1:4)       # give row-names  
@@ -206,138 +206,146 @@ get_likelihood_set_prop = function(end_id, ctr_id, data) {
   return(cp_set_results)
 }
 
-
-# Getting all of the results ---------------------------------------------------
-
-prop1 <- get_cp_set_prop(end1, FALSE, 66, data2); print(paste0("CP full --> ", prop1$cardinality_cp_set))
-prop2 <- get_likelihood_set_prop(end1, 66, data2); print(paste0("Likelihood full --> ", prop2$cardinality_cp_set))
-prop3 <- get_cp_set_prop(end1, TRUE, 66, data2); print(paste0("CP+0 full --> ", prop3$cardinality_cp_set))
-
-# Getting all of the results with less training data ---------------------------
-
-sweden = data2[data2$country_id == 66, ]
-sweden_small = sweden[sweden$month_id >= 535, ]
-
-prop1_small <- get_cp_set_prop(end1, FALSE, 66, sweden_small); print(paste0("CP small --> ", prop1_small$cardinality_cp_set))
-prop2_small <- get_likelihood_set_prop(end1, 66, sweden_small); print(paste0("Likelihood small --> ", prop2_small$cardinality_cp_set))
-prop3_small <- get_cp_set_prop(end1, TRUE, 66, sweden_small); print(paste0("CP+0 small --> ", prop3_small$cardinality_cp_set))
-
-# Plotting the results ---------------------------------------------------------
-
-df_all_train = data.frame("State" = rep(c(rep("State 1", T1), rep("State 2", T1), rep("State 3", T1), rep("State 4", T1)), 3), 
-                          "colname" = c(rep(colnames(prop1$ctr_prop), 4), rep(colnames(prop2$ctr_prop), 4), rep(colnames(prop3$ctr_prop), 4)),
-                          "Proportion" = c(c(t(prop1$ctr_prop)), c(t(prop2$ctr_prop)), c(t(prop3$ctr_prop))),
-                          "tp" = rep(1:T1, 4 * 3),
-                          "TS" = rep(1, T1 * 4 * 3),
-                          "Country" = c(rep("Conformal Prediction", T1 * 4), rep("Likelihood-Based Prediction", T1 * 4), rep("Conformal Prediction + 0", T1*4)),
-                          "tp_factor" = rep(paste0("T+", 1:T1), 4 * 3))
-df_all_train$Country <- factor(df_all_train$Country, 
-                   levels = unique(df_all_train$Country))
-
-df_small = data.frame("State" = rep(c(rep("State 1", T1), rep("State 2", T1), rep("State 3", T1), rep("State 4", T1)), 3), 
-                      "colname" = c(rep(colnames(prop1_small$ctr_prop), 4), rep(colnames(prop2_small$ctr_prop), 4), rep(colnames(prop3_small$ctr_prop), 4)),
-                      "Proportion" = c(c(t(prop1_small$ctr_prop)), c(t(prop2_small$ctr_prop)), c(t(prop3_small$ctr_prop))),
-                      "tp" = rep(1:T1, 4 * 3),
-                      "TS" = rep(1, T1 * 4 * 3),
-                      "Country" = c(rep("Conformal Prediction", T1 * 4), rep("Likelihood-Based Prediction", T1 * 4), rep("Conformal Prediction + 0", T1*4)),
-                      "tp_factor" = rep(paste0("T+", 1:T1), 4 * 3))
-df_small$Country <- factor(df_small$Country, 
-                               levels = unique(df_small$Country))
-
-
-plot_cp_results <- function(df, main_title, subtitle = NULL) {
+# ------------------------------------------------------------------------------
+# iterate coinflip -------------------------------------------------------------
+# ------------------------------------------------------------------------------
+for(coinflip in c(TRUE,FALSE)) {
   
-  # state names + colors
-  state_labels <- c(
-    "State 1" = "State 1 (Peaceful)",
-    "State 2" = "State 2 (Escalation)",
-    "State 3" = "State 3 (War)",
-    "State 4" = "State 4 (Deescalation)"
+  print(paste0("Coinflip = ", coinflip))
+  
+  # Getting all of the results ---------------------------------------------------
+  
+  prop1 <- get_cp_set_prop(end1, FALSE, 66, data2, coinflip); print(paste0("CP full --> ", prop1$cardinality_cp_set))
+  prop2 <- get_likelihood_set_prop(end1, 66, data2); print(paste0("Likelihood full --> ", prop2$cardinality_cp_set))
+  prop3 <- get_cp_set_prop(end1, TRUE, 66, data2, coinflip); print(paste0("CP+0 full --> ", prop3$cardinality_cp_set))
+  
+  # Getting all of the results with less training data ---------------------------
+  
+  sweden = data2[data2$country_id == 66, ]
+  sweden_small = sweden[sweden$month_id >= 535, ]
+  
+  prop1_small <- get_cp_set_prop(end1, FALSE, 66, sweden_small, coinflip); print(paste0("CP small --> ", prop1_small$cardinality_cp_set))
+  prop2_small <- get_likelihood_set_prop(end1, 66, sweden_small); print(paste0("Likelihood small --> ", prop2_small$cardinality_cp_set))
+  prop3_small <- get_cp_set_prop(end1, TRUE, 66, sweden_small, coinflip); print(paste0("CP+0 small --> ", prop3_small$cardinality_cp_set))
+  
+  # Plotting the results ---------------------------------------------------------
+  
+  df_all_train = data.frame("State" = rep(c(rep("State 1", T1), rep("State 2", T1), rep("State 3", T1), rep("State 4", T1)), 3), 
+                            "colname" = c(rep(colnames(prop1$ctr_prop), 4), rep(colnames(prop2$ctr_prop), 4), rep(colnames(prop3$ctr_prop), 4)),
+                            "Proportion" = c(c(t(prop1$ctr_prop)), c(t(prop2$ctr_prop)), c(t(prop3$ctr_prop))),
+                            "tp" = rep(1:T1, 4 * 3),
+                            "TS" = rep(1, T1 * 4 * 3),
+                            "Country" = c(rep("Conformal Prediction", T1 * 4), rep("Likelihood-Based Prediction", T1 * 4), rep("Conformal Prediction + 1", T1*4)),
+                            "tp_factor" = rep(paste0("T+", 1:T1), 4 * 3))
+  df_all_train$Country <- factor(df_all_train$Country, 
+                                 levels = unique(df_all_train$Country))
+  
+  df_small = data.frame("State" = rep(c(rep("State 1", T1), rep("State 2", T1), rep("State 3", T1), rep("State 4", T1)), 3), 
+                        "colname" = c(rep(colnames(prop1_small$ctr_prop), 4), rep(colnames(prop2_small$ctr_prop), 4), rep(colnames(prop3_small$ctr_prop), 4)),
+                        "Proportion" = c(c(t(prop1_small$ctr_prop)), c(t(prop2_small$ctr_prop)), c(t(prop3_small$ctr_prop))),
+                        "tp" = rep(1:T1, 4 * 3),
+                        "TS" = rep(1, T1 * 4 * 3),
+                        "Country" = c(rep("Conformal Prediction", T1 * 4), rep("Likelihood-Based Prediction", T1 * 4), rep("Conformal Prediction + 1", T1*4)),
+                        "tp_factor" = rep(paste0("T+", 1:T1), 4 * 3))
+  df_small$Country <- factor(df_small$Country, 
+                             levels = unique(df_small$Country))
+  
+  
+  plot_cp_results <- function(df, main_title, subtitle = NULL) {
+    
+    # state names + colors
+    state_labels <- c(
+      "State 1" = "State 1 (Peaceful)",
+      "State 2" = "State 2 (Escalation)",
+      "State 3" = "State 3 (War)",
+      "State 4" = "State 4 (Deescalation)"
+    )
+    
+    state_colors <- c(
+      "State 1" = "skyblue2",
+      "State 2" = "darkorange2",
+      "State 3" = "firebrick2",
+      "State 4" = "seagreen3"
+    )
+    
+    ts_labels <- df %>%
+      dplyr::distinct(Country, tp, tp_factor, TS) %>%
+      dplyr::filter(!is.na(TS)) %>%         
+      dplyr::mutate(
+        TS_label = dplyr::case_when(
+          TS == 1L ~ "1",
+          TS == 2L ~ "2",
+          TS == 3L ~ "3",
+          TS == 4L ~ "4"
+        ),
+        TS_state = factor(paste("State", TS),
+                          levels = names(state_colors))
+      )
+    
+    ggplot(df, aes(x = tp_factor, y = Proportion, fill = State)) +
+      geom_col(width = 0.8) +
+      # TS label just above the bar, bold
+      geom_text(
+        data = ts_labels,
+        aes(x = tp_factor, y = 1.02, label = TS_label, color = TS_state),
+        inherit.aes = FALSE,
+        vjust = 0,              # anchor at y = 1.02 baseline
+        size = 3.0,
+        fontface = "bold"
+      ) +
+      # allow a little extra space above 1.0 for the labels
+      scale_y_continuous(
+        limits = c(0, 1.1),
+        breaks = seq(0, 1, by = 0.25),
+        labels = scales::percent_format(accuracy = 1),
+        expand = expansion(mult = c(0, 0.02))
+      ) +
+      # don't clip the TS labels at the top of each panel
+      coord_cartesian(clip = "off") +
+      scale_fill_manual(
+        values = state_colors,
+        labels = state_labels,
+        name   = "State"
+      ) +
+      scale_color_manual(
+        values = state_colors,
+        guide  = "none"
+      ) +
+      facet_wrap(~ Country, ncol = length(unique(ts_labels$Country))) +
+      labs(
+        title    = main_title,
+        subtitle = subtitle,
+        x        = NULL,
+        y        = "Percentage"
+      ) +
+      theme_bw(base_size = 11) +
+      theme(
+        plot.title    = element_text(hjust = 0.5, face = "bold", size = 16),
+        plot.subtitle = element_text(hjust = 0.5, size = 10),
+        strip.background = element_blank(),
+        strip.text       = element_text(face = "bold", size = 11),
+        axis.text.x      = element_text(size = 9, margin = margin(t = 4)),
+        axis.text.y      = element_text(size = 9),
+        legend.position  = "bottom",
+        legend.title     = element_text(face = "bold"),
+        panel.spacing    = unit(1.1, "lines"),
+        plot.margin      = margin(t = 24, r = 12, b = 12, l = 12)
+      )
+  }
+  
+  p4 <- plot_cp_results(
+    df_all_train,
+    "Prediction Sets of Forecasted Conflict State-Sequences (T = 420)",
+    "Real Conflict Data, alpha = 0.2"
   )
   
-  state_colors <- c(
-    "State 1" = "skyblue2",
-    "State 2" = "darkorange2",
-    "State 3" = "firebrick2",
-    "State 4" = "seagreen3"
+  p5 <- plot_cp_results(
+    df_small,
+    "Prediction Sets of Forecasted Conflict State-Sequences (T = 6)",
+    "Real Conflict Data, alpha = 0.2"
   )
   
-  ts_labels <- df %>%
-    dplyr::distinct(Country, tp, tp_factor, TS) %>%
-    dplyr::filter(!is.na(TS)) %>%         
-    dplyr::mutate(
-      TS_label = dplyr::case_when(
-        TS == 1L ~ "1",
-        TS == 2L ~ "2",
-        TS == 3L ~ "3",
-        TS == 4L ~ "4"
-      ),
-      TS_state = factor(paste("State", TS),
-                        levels = names(state_colors))
-    )
+  ggsave(paste0("outputs/plots/limitation_large_", as.numeric(coinflip), ".pdf"), p4, width = 12, height = 4, units = "in", device = "pdf")
+  ggsave(paste0("outputs/plots/limitation_small_", as.numeric(coinflip), ".pdf"), p5, width = 12, height = 4, units = "in", device = "pdf")
   
-  ggplot(df, aes(x = tp_factor, y = Proportion, fill = State)) +
-    geom_col(width = 0.8) +
-    # TS label just above the bar, bold
-    geom_text(
-      data = ts_labels,
-      aes(x = tp_factor, y = 1.02, label = TS_label, color = TS_state),
-      inherit.aes = FALSE,
-      vjust = 0,              # anchor at y = 1.02 baseline
-      size = 3.0,
-      fontface = "bold"
-    ) +
-    # allow a little extra space above 1.0 for the labels
-    scale_y_continuous(
-      limits = c(0, 1.1),
-      breaks = seq(0, 1, by = 0.25),
-      labels = scales::percent_format(accuracy = 1),
-      expand = expansion(mult = c(0, 0.02))
-    ) +
-    # don't clip the TS labels at the top of each panel
-    coord_cartesian(clip = "off") +
-    scale_fill_manual(
-      values = state_colors,
-      labels = state_labels,
-      name   = "State"
-    ) +
-    scale_color_manual(
-      values = state_colors,
-      guide  = "none"
-    ) +
-    facet_wrap(~ Country, ncol = length(unique(ts_labels$Country))) +
-    labs(
-      title    = main_title,
-      subtitle = subtitle,
-      x        = NULL,
-      y        = "Percentage"
-    ) +
-    theme_bw(base_size = 11) +
-    theme(
-      plot.title    = element_text(hjust = 0.5, face = "bold", size = 16),
-      plot.subtitle = element_text(hjust = 0.5, size = 10),
-      strip.background = element_blank(),
-      strip.text       = element_text(face = "bold", size = 11),
-      axis.text.x      = element_text(size = 9, margin = margin(t = 4)),
-      axis.text.y      = element_text(size = 9),
-      legend.position  = "bottom",
-      legend.title     = element_text(face = "bold"),
-      panel.spacing    = unit(1.1, "lines"),
-      plot.margin      = margin(t = 24, r = 12, b = 12, l = 12)
-    )
 }
-
-p4 <- plot_cp_results(
-  df_all_train,
-  "Prediction Sets of Forecasted Conflict State-Sequences (T = 420)",
-  "Real Conflict Data, alpha = 0.2"
-)
-
-p5 <- plot_cp_results(
-  df_small,
-  "Prediction Sets of Forecasted Conflict State-Sequences (T = 6)",
-  "Real Conflict Data, alpha = 0.2"
-)
-
-ggsave("outputs/plots/limitation_large.pdf", p4, width = 12, height = 4, units = "in", device = "pdf")
-ggsave("outputs/plots/limitation_small.pdf", p5, width = 12, height = 4, units = "in", device = "pdf")
