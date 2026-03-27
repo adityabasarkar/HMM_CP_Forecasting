@@ -59,7 +59,7 @@ cp_results_to_df <- function(cp_results) {
         tp_factor = factor(
           tp,
           levels = sort(unique(tp)),
-          labels = paste0("T+", sort(unique(tp)))
+          labels = ifelse(sort(unique(tp)) == 0, "T", paste0("T+", sort(unique(tp))))
         ),
         State = factor(State,
                        levels = c("State 1", "State 2", "State 3", "State 4"))

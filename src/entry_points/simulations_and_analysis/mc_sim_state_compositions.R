@@ -70,22 +70,28 @@ generate_sequence_mm <- function(P, k, n) {
 
 get_cp_set_mat = function() {
   cp_set_results = list()
-
+  
   mm_seq = generate_sequence_mm(P, k, calib_len + T1)
   mm_seq_calib <- mm_seq[1:calib_len]
   mm_seq_test <- mm_seq[(calib_len + 1):(calib_len + T1)]
   
+  # state at time T+0
+  start_state <- mm_seq_calib[[length(mm_seq_calib)]]
   
   #---------------------------------------
   # cp set with no added zero
   cp_set <- get_cp_set(mm_seq_calib, c(0), T1, 1000, 4, 4, alpha, FALSE, "mm", allowable_transitions)
   
-  ctr_res <- matrix(0, nrow = 4, ncol = T1)        # set all entries to 0  
-  rownames(ctr_res) <- paste("State", 1:4)       # give row-names  
+  # prepend T+0 to each sequence
+  cp_set <- lapply(cp_set, function(seq) c(start_state, seq))
+  
+  ctr_res <- matrix(0, nrow = 4, ncol = T1 + 1)        # set all entries to 0  
+  rownames(ctr_res) <- paste("State", 1:4)             # give row-names  
   true_states = unlist(mm_seq)[(calib_len + 1):(calib_len + T1)]
-  colnames(ctr_res) <- paste0(
-    "tp=", 1:T1, ", TS=", true_states+1
-  )  
+  colnames(ctr_res) <- c(
+    paste0("tp=0, TS=", start_state + 1),
+    paste0("tp=", 1:T1, ", TS=", true_states + 1)
+  )
   
   for (seq in cp_set) {
     for (t in seq_along(seq)) {
@@ -98,11 +104,11 @@ get_cp_set_mat = function() {
   cp_set_results[["CP Set"]] <- ctr_prop
   
   #---------------------------------------
-  # cp set  with likelihood
+  # cp set with likelihood
   transition_probs = estimate_transition_probabilities(mm_seq_calib, 4)
   
   # last observed state becomes the fixed prefix for all candidate futures
-  start_state <- mm_seq_calib[[length(mm_seq_calib)]][1]
+  start_state <- mm_seq_calib[[length(mm_seq_calib)]]
   
   # all candidate futures of length T1 over states 0..3
   grid_df <- expand.grid(rep(list(0:(4L - 1L)), T1), KEEP.OUT.ATTRS = FALSE, stringsAsFactors = FALSE)
@@ -131,15 +137,16 @@ get_cp_set_mat = function() {
   k <- which(cumul >= target)[1]
   if (is.na(k)) k <- length(probs_ord)  # if total < target due to zeros, take all
   
-  # selected candidate set (each is a length-T1 future sequence, without the start state)
-  lik_set <- lapply(seq_len(k), function(j) as.integer(grid_df[ord[j], ]))
+  # selected candidate set, now including T+0
+  lik_set <- lapply(seq_len(k), function(j) c(start_state, as.integer(grid_df[ord[j], ])))
   
-  ctr_res <- matrix(0, nrow = 4, ncol = T1)        # set all entries to 0  
-  rownames(ctr_res) <- paste("State", 1:4)       # give row-names  
+  ctr_res <- matrix(0, nrow = 4, ncol = T1 + 1)        # set all entries to 0  
+  rownames(ctr_res) <- paste("State", 1:4)             # give row-names  
   true_states = unlist(mm_seq)[(calib_len + 1):(calib_len + T1)]
-  colnames(ctr_res) <- paste0(
-    "tp=", 1:T1, ", TS=", true_states+1
-  )  
+  colnames(ctr_res) <- c(
+    paste0("tp=0, TS=", start_state + 1),
+    paste0("tp=", 1:T1, ", TS=", true_states + 1)
+  )
   
   for (seq in lik_set) {
     for (t in seq_along(seq)) {
@@ -154,7 +161,7 @@ get_cp_set_mat = function() {
   cp_set_results[["Likelihood Set"]] <- ctr_prop
   
   print("FINISHED")
-
+  
   return(list(
     cp_set_results = cp_set_results,
     cp_set = cp_set,
@@ -168,8 +175,8 @@ cp_set <- res$cp_set
 lik_set <- res$lik_set
 
 true_states <- as.integer(sub(".*TS=", "", colnames(mc_cp_set_results1[[1]])))
-true_states <- true_states - 1L           # keep integer arithmetic
-true_states <- as.integer(true_states)    # belt-and-suspenders
+true_states <- true_states - 1L
+true_states <- as.integer(true_states)
 
 is_true_in_cp <- any(sapply(cp_set, function(seq) identical(seq, true_states)))
 is_true_in_cp

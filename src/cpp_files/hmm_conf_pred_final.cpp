@@ -556,7 +556,7 @@ Rcpp::List get_cp_set(
   bool add_zero,
   std::string mode,
   const arma::mat &allowable_transitions,
-  bool coin_flip = true
+  bool coin_flip = false
 ) {
   
   arma::mat allowed;
@@ -760,7 +760,7 @@ double get_p_val(
     int num_perms, int k, int m,
     bool add_zero,
     std::string mode,
-	bool coin_flip = true
+	bool coin_flip = false
 ) {
   
   Rcpp::RNGScope scope;

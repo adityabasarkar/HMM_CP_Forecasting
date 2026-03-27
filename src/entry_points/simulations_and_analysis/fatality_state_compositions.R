@@ -15,6 +15,9 @@ data1 = readRDS(file.path(data_dir, "preprocessed_data.rds"))
 data2 = readRDS(file.path(data_dir, "preprocessed_data_full.rds"))
 
 countries <- c(70, 235, 149, 57, 245)
+# countries <- c(70, 149, 57, 28)
+# countries <- c(133, 220)
+
 end1 = 540 # Dec 2022
 end2 = 547
 alpha = 0.2
@@ -23,7 +26,7 @@ set.seed(2569)
 
 
 mk_pairs <- function(states_vec) lapply(states_vec, function(s) s-1)
-get_cp_set_prop = function(end_id, add_zero, ctr_id, data, coinflip = TRUE) {
+get_cp_set_prop = function(end_id, add_zero, ctr_id, data, coinflip = FALSE) {
   
   set.seed(2569)
   country_df = data[data$country_id == ctr_id,]
@@ -32,6 +35,9 @@ get_cp_set_prop = function(end_id, add_zero, ctr_id, data, coinflip = TRUE) {
   cal_idx <- 1:end_idx
   s_cal  <- country_df[[ "state" ]][cal_idx]
   mm_seq_calib <- mk_pairs(s_cal)
+  
+  # state at time T+0, encoded the same way as cp_set states (0:3)
+  start_state <- country_df[["state"]][end_idx] - 1L
   
   # cp set 1
   allowable_transitions <- matrix(
@@ -45,18 +51,20 @@ get_cp_set_prop = function(end_id, add_zero, ctr_id, data, coinflip = TRUE) {
   )
   cp_set <- get_cp_set(mm_seq_calib, c(0), T1, 1000, 4, 4, alpha, add_zero, "mm", allowable_transitions, coinflip)
   
-  ctr_res <- matrix(0, nrow = 4, ncol = T1)        # set all entries to 0  
-  rownames(ctr_res) <- paste("State", 1:4)       # give row-names  
+  # prepend T+0 to each sequence
+  cp_set <- lapply(cp_set, function(seq) c(start_state, seq))
+  
+  ctr_res <- matrix(0, nrow = 4, ncol = T1 + 1)        # set all entries to 0  
+  rownames(ctr_res) <- paste("State", 1:4)             # give row-names  
   
   true_idx <- (end_idx + 1L):(end_idx + T1)
   if (max(true_idx) > nrow(country_df)) {
-    colnames(ctr_res) <- paste0(
-      "tp=", 1:T1
-    )
+    colnames(ctr_res) <- c("tp=0", paste0("tp=", 1:T1))
   } else {
     true_states <- country_df[["state"]][true_idx]
-    colnames(ctr_res) <- paste0(
-      "tp=", 1:T1, ", TS=", true_states
+    colnames(ctr_res) <- c(
+      paste0("tp=0, TS=", country_df[["state"]][end_idx]),
+      paste0("tp=", 1:T1, ", TS=", true_states)
     )
   }
   
@@ -72,8 +80,7 @@ get_cp_set_prop = function(end_id, add_zero, ctr_id, data, coinflip = TRUE) {
   n_cp_set <- length(cp_set)
   
   true_in_cp <- FALSE
-  true_states <- mk_pairs(country_df[["state"]][true_idx])
-  true_states <- as.integer(true_states)
+  true_states <- c(start_state, as.integer(mk_pairs(country_df[["state"]][true_idx])))
   if (!is.null(true_states)) {
     true_in_cp <- any(sapply(cp_set, function(seq) identical(seq, true_states)))
   }
@@ -98,8 +105,8 @@ get_likelihood_set_prop = function(end_id, ctr_id, data) {
   
   transition_probs = estimate_transition_probabilities(mm_seq_calib, 4)
   
-  # last observed state becomes the fixed prefix for all candidate futures
-  start_state <- mm_seq_calib[[length(mm_seq_calib)]][1]
+  # state at time T+0, encoded the same way as cp_set states (0:3)
+  start_state <- country_df[["state"]][end_idx] - 1L
   
   # all candidate futures of length T1 over states 0..3
   grid_df <- expand.grid(rep(list(0:(4L - 1L)), T1), KEEP.OUT.ATTRS = FALSE, stringsAsFactors = FALSE)
@@ -138,21 +145,20 @@ get_likelihood_set_prop = function(end_id, ctr_id, data) {
   k <- which(cumul >= target)[1]
   if (is.na(k)) k <- length(probs_ord)  # if total < target due to zeros, take all
   
-  # selected candidate set (each is a length-T1 future sequence, without the start state)
-  cp_set <- lapply(seq_len(k), function(j) as.integer(grid_df[ord[j], ]))
+  # selected candidate set, now including T+0 as the first state
+  cp_set <- lapply(seq_len(k), function(j) c(start_state, as.integer(grid_df[ord[j], ])))
   
-  ctr_res <- matrix(0, nrow = 4, ncol = T1)        # set all entries to 0  
-  rownames(ctr_res) <- paste("State", 1:4)       # give row-names  
+  ctr_res <- matrix(0, nrow = 4, ncol = T1 + 1)        # set all entries to 0  
+  rownames(ctr_res) <- paste("State", 1:4)             # give row-names  
   
   true_idx <- (end_idx + 1L):(end_idx + T1)
   if (max(true_idx) > nrow(country_df)) {
-    colnames(ctr_res) <- paste0(
-      "tp=", 1:T1
-    )
+    colnames(ctr_res) <- c("tp=0", paste0("tp=", 1:T1))
   } else {
     true_states <- country_df[["state"]][true_idx]
-    colnames(ctr_res) <- paste0(
-      "tp=", 1:T1, ", TS=", true_states
+    colnames(ctr_res) <- c(
+      paste0("tp=0, TS=", country_df[["state"]][end_idx]),
+      paste0("tp=", 1:T1, ", TS=", true_states)
     )
   } 
   
@@ -169,8 +175,7 @@ get_likelihood_set_prop = function(end_id, ctr_id, data) {
   n_lik_set <- length(cp_set)
   
   true_in_lik <- FALSE
-  true_states <- mk_pairs(country_df[["state"]][true_idx])
-  true_states <- as.integer(true_states)
+  true_states <- c(start_state, as.integer(mk_pairs(country_df[["state"]][true_idx])))
   if (!is.null(true_states)) {
     true_in_lik <- any(sapply(cp_set, function(seq) identical(seq, true_states)))
   }
@@ -181,8 +186,6 @@ get_likelihood_set_prop = function(end_id, ctr_id, data) {
     true_in_lik = true_in_lik
   ))
 }
-
-
 
 
 
