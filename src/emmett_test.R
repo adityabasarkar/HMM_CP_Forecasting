@@ -359,9 +359,32 @@ init_state_uganda = c(1,0,0,0)
 
 est_uganda <- estimate_transition_probabilities(as.list(data_clean$state[data_clean$country_id == uganda_id] - 1), 4)
 
+temp = est_uganda
+for(i in 1:100) {
+  print(i)
+  temp = temp %*% est_uganda
+  print(temp)
+}
+
 marginal_uganda = init_state_uganda
 for(i in 2:length(uganda_states)) {
   marginal_uganda = matrix(marginal_uganda, nrow = 1) %*% est_uganda
+}
+
+P_true = matrix(c(0.895, 0.105, 0, 0, 
+                  0, 0, 0.500, 0.500,
+                  0, 0, 0.722, 0.278,
+                  0.653, 0.347, 0, 0), byrow = T, nrow = 4)
+
+s2_marg = c(0,1,0,0)
+norms = NULL
+
+for(i in 1:100){
+  s2_prev =s2_marg
+  s2_marg = matrix(s2_marg, nrow = 1) %*% P_true
+  norms = c(norms, sum(abs(s2_marg - s2_prev)))
+  print(i)
+  print(s2_marg)
 }
 
 # # ------------------------------------------------------------------------------
