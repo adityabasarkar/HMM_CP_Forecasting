@@ -14,8 +14,8 @@ data_dir = "outputs/r_objects"
 data1 = readRDS(file.path(data_dir, "preprocessed_data.rds"))
 data2 = readRDS(file.path(data_dir, "preprocessed_data_full.rds"))
 
-countries <- c(70, 235, 149, 57, 245)
-# countries <- c(70, 149, 57, 28)
+# countries <- c(70, 235, 149, 57, 245)
+countries <- c(70, 149, 57, 28)
 # countries <- c(133, 220)
 
 end1 = 540 # Dec 2022
@@ -26,7 +26,7 @@ set.seed(2569)
 
 
 mk_pairs <- function(states_vec) lapply(states_vec, function(s) s-1)
-get_cp_set_prop = function(end_id, add_zero, ctr_id, data, coinflip = FALSE) {
+get_cp_set_prop = function(end_id, add_zero, ctr_id, data, coinflip = TRUE) {
   
   set.seed(2569)
   country_df = data[data$country_id == ctr_id,]

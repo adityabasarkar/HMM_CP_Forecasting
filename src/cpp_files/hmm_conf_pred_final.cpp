@@ -556,7 +556,7 @@ Rcpp::List get_cp_set(
   bool add_zero,
   std::string mode,
   const arma::mat &allowable_transitions,
-  bool coin_flip = false
+  bool coin_flip = true
 ) {
   
   arma::mat allowed;
@@ -620,6 +620,8 @@ Rcpp::List get_cp_set(
   Rcpp::List cp_set;
   std::vector<int> state(T1, 0);
   bool done = false;
+  // create a vector for each possible proposed state sequence you will store the eq_count.
+  // 
   while (!done) {
     
     // Create the augmented sequence
@@ -760,7 +762,7 @@ double get_p_val(
     int num_perms, int k, int m,
     bool add_zero,
     std::string mode,
-	bool coin_flip = false
+	bool coin_flip = true
 ) {
   
   Rcpp::RNGScope scope;
