@@ -73,7 +73,7 @@ get_cp_set_prop = function(end_id, add_zero, ctr_id, data, coinflip = TRUE) {
     )
   }
 
-  for (seq in cp_set) {
+  for (seq in cp_set[[1]]) {
     for (t in seq_along(seq)) {
       state <- seq[t]
       ctr_res[state+1, t] <- ctr_res[state+1, t] + 1
@@ -82,7 +82,7 @@ get_cp_set_prop = function(end_id, add_zero, ctr_id, data, coinflip = TRUE) {
 
   ctr_prop <- sweep(ctr_res, 2, colSums(ctr_res), "/")
 
-  cp_set_matrix = do.call('rbind', cp_set)
+  cp_set_matrix = do.call('rbind', cp_set[[1]])
   cp_set_matrix_prop = rbind(apply(cp_set_matrix, 2, function(x) {mean(x == 0)}),
                              apply(cp_set_matrix, 2, function(x) {mean(x == 1)}),
                              apply(cp_set_matrix, 2, function(x) {mean(x == 2)}),
@@ -235,24 +235,41 @@ for(coinflip in c(TRUE,FALSE)) {
   print(paste0("CP+0 small X(T+T1) = 0 --> ", sum(prop3_small$cp_set_matrix[,ncol(prop3_small$cp_set_matrix)] == 0)))
   
   # Plotting the results ---------------------------------------------------------
+  
+  state_at_T = sweden$state[sweden$month_id == end1]
+  prop_at_T = rep(0, 4); prop_at_T[state_at_T] = 1
 
-  df_all_train = data.frame("State" = rep(c(rep("State 1", T1), rep("State 2", T1), rep("State 3", T1), rep("State 4", T1)), 3),
-                            "colname" = c(rep(colnames(prop1$ctr_prop), 4), rep(colnames(prop2$ctr_prop), 4), rep(colnames(prop3$ctr_prop), 4)),
-                            "Proportion" = c(c(t(prop1$ctr_prop)), c(t(prop2$ctr_prop)), c(t(prop3$ctr_prop))),
-                            "tp" = rep(1:T1, 4 * 3),
-                            "TS" = rep(1, T1 * 4 * 3),
-                            "Country" = c(rep("Conformal Prediction", T1 * 4), rep("Likelihood-Based Prediction", T1 * 4), rep("Conformal Prediction + 1", T1*4)),
-                            "tp_factor" = rep(paste0("T+", 1:T1), 4 * 3))
+  df_all_train = data.frame("State" = rep(c(rep("State 1", T1+1), rep("State 2", T1+1), 
+                                            rep("State 3", T1+1), rep("State 4", T1+1)), 3),
+                            "colname" = c(rep(c(paste0("tp=0, TS=",state_at_T), colnames(prop1$ctr_prop)), 4), 
+                                          rep(c(paste0("tp=0, TS=",state_at_T), colnames(prop2$ctr_prop)), 4), 
+                                          rep(c(paste0("tp=0, TS=",state_at_T), colnames(prop3$ctr_prop)), 4)),
+                            "Proportion" = c(c(rbind(prop_at_T,t(prop1$ctr_prop))), 
+                                             c(rbind(prop_at_T,t(prop2$ctr_prop))), 
+                                             c(rbind(prop_at_T,t(prop3$ctr_prop)))),
+                            "tp" = rep(0:T1, 4 * 3),
+                            "TS" = rep(1, (T1+1) * 4 * 3),
+                            "Country" = c(rep("Conformal Prediction", (T1+1) * 4), 
+                                          rep("Likelihood-Based Prediction", (T1+1) * 4), 
+                                          rep("Conformal Prediction + 1", (T1+1)*4)),
+                            "tp_factor" = rep(c("T", paste0("T+", 1:T1)), 4 * 3))
   df_all_train$Country <- factor(df_all_train$Country,
                                  levels = unique(df_all_train$Country))
 
-  df_small = data.frame("State" = rep(c(rep("State 1", T1), rep("State 2", T1), rep("State 3", T1), rep("State 4", T1)), 3),
-                        "colname" = c(rep(colnames(prop1_small$ctr_prop), 4), rep(colnames(prop2_small$ctr_prop), 4), rep(colnames(prop3_small$ctr_prop), 4)),
-                        "Proportion" = c(c(t(prop1_small$ctr_prop)), c(t(prop2_small$ctr_prop)), c(t(prop3_small$ctr_prop))),
-                        "tp" = rep(1:T1, 4 * 3),
-                        "TS" = rep(1, T1 * 4 * 3),
-                        "Country" = c(rep("Conformal Prediction", T1 * 4), rep("Likelihood-Based Prediction", T1 * 4), rep("Conformal Prediction + 1", T1*4)),
-                        "tp_factor" = rep(paste0("T+", 1:T1), 4 * 3))
+  df_small = data.frame("State" = rep(c(rep("State 1", T1+1), rep("State 2", T1+1), 
+                                        rep("State 3", T1+1), rep("State 4", T1+1)), 3),
+                        "colname" = c(rep(c(paste0("tp=0, TS=",state_at_T), colnames(prop1_small$ctr_prop)), 4), 
+                                      rep(c(paste0("tp=0, TS=",state_at_T), colnames(prop2_small$ctr_prop)), 4), 
+                                      rep(c(paste0("tp=0, TS=",state_at_T), colnames(prop3_small$ctr_prop)), 4)),
+                        "Proportion" = c(c(rbind(prop_at_T,t(prop1_small$ctr_prop))), 
+                                         c(rbind(prop_at_T,t(prop2_small$ctr_prop))), 
+                                         c(rbind(prop_at_T,t(prop3_small$ctr_prop)))),
+                        "tp" = rep(0:T1, 4 * 3),
+                        "TS" = rep(1, (T1+1) * 4 * 3),
+                        "Country" = c(rep("Conformal Prediction", (T1+1) * 4), 
+                                      rep("Likelihood-Based Prediction", (T1+1) * 4), 
+                                      rep("Conformal Prediction + 1", (T1+1)*4)),
+                        "tp_factor" = rep(c("T", paste0("T+", 1:T1)), 4 * 3))
   df_small$Country <- factor(df_small$Country,
                              levels = unique(df_small$Country))
 
