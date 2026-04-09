@@ -80,7 +80,8 @@ get_cp_set_mat = function() {
   
   #---------------------------------------
   # cp set with no added zero
-  cp_set <- get_cp_set(mm_seq_calib, c(0), T1, 1000, 4, 4, alpha, FALSE, "mm", allowable_transitions)
+  res <- get_cp_set(mm_seq_calib, c(0), T1, 1000, 4, 4, alpha, FALSE, "mm", allowable_transitions)
+  cp_set <- res$cp_set
   
   # prepend T+0 to each sequence
   cp_set <- lapply(cp_set, function(seq) c(start_state, seq))

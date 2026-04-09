@@ -49,8 +49,9 @@ get_cp_set_prop = function(end_id, add_zero, ctr_id, data, coinflip = TRUE) {
     ncol = 4,
     byrow = TRUE
   )
-  cp_set <- get_cp_set(mm_seq_calib, c(0), T1, 1000, 4, 4, alpha, add_zero, "mm", allowable_transitions, coinflip)
-  
+  res <- get_cp_set(mm_seq_calib, c(0), T1, 1000, 4, 4, alpha, add_zero, "mm", allowable_transitions, coinflip)
+  cp_set <- res$cp_set
+
   # prepend T+0 to each sequence
   cp_set <- lapply(cp_set, function(seq) c(start_state, seq))
   

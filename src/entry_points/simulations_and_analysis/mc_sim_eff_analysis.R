@@ -88,7 +88,7 @@ mc_avg_set_sizes <- function() {
         mm_seq <- generate_sequence_mm(P, k, calib_len + T1)
         mm_seq_calib <- mm_seq[1:calib_len]
         
-        cp_set <- get_cp_set(
+        res <- get_cp_set(
           mm_seq_calib,
           as.integer(c()),
           as.integer(T1),
@@ -101,6 +101,7 @@ mc_avg_set_sizes <- function() {
           allowable_transitions,
           TRUE
         )
+        cp_set <- res$cp_set
         cp_sizes[i] <- length(cp_set)
         
         transition_probs <- estimate_transition_probabilities(mm_seq_calib, 4)
