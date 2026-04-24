@@ -119,10 +119,14 @@ get_cp_set_mat = function() {
     states01 <- c(start_state, as.integer(seq))
     from <- states01[-length(states01)] + 1L
     to   <- states01[-1]               + 1L
-    if (any(allowable_transitions[cbind(from, to)] == 0)) {
-      return(0)
-    }
     prod(transition_probs[cbind(from, to)])
+  }
+  
+  path_allowed <- function(seq) {
+    states01 <- c(start_state, as.integer(seq))
+    from <- states01[-length(states01)] + 1L
+    to   <- states01[-1]               + 1L
+    all(allowable_transitions[cbind(from, to)] == 1)
   }
   
   # 1) score all candidate sequences
@@ -135,11 +139,13 @@ get_cp_set_mat = function() {
   # 3) take top few so that cumulative >= 1 - alpha (prefer overshoot)
   target <- 1 - alpha
   cumul <- cumsum(probs_ord)
-  k <- which(cumul >= target)[1]
+  tol <- 1e-12
+  k <- which(cumul >= target - tol)[1]
   if (is.na(k)) k <- length(probs_ord)  # if total < target due to zeros, take all
   
   # selected candidate set, now including T+0
   lik_set <- lapply(seq_len(k), function(j) c(start_state, as.integer(grid_df[ord[j], ])))
+  lik_set <- Filter(function(seq) path_allowed(seq[-1]), lik_set)
   
   ctr_res <- matrix(0, nrow = 4, ncol = T1 + 1)        # set all entries to 0  
   rownames(ctr_res) <- paste("State", 1:4)             # give row-names  

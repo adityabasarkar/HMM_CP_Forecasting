@@ -162,10 +162,14 @@ mc_rel_curve_likelihood <- function() {
           states01 <- c(start_state, as.integer(seq))
           from <- states01[-length(states01)] + 1L
           to   <- states01[-1] + 1L
-          if (any(allowable_transitions[cbind(from, to)] == 0)) {
-            return(0)
-          }
           prod(transition_probs[cbind(from, to)])
+        }
+        
+        path_allowed <- function(seq) {
+          states01 <- c(start_state, as.integer(seq))
+          from <- states01[-length(states01)] + 1L
+          to   <- states01[-1] + 1L
+          all(allowable_transitions[cbind(from, to)] == 1)
         }
         
         # 1) score all candidate sequences
@@ -179,11 +183,13 @@ mc_rel_curve_likelihood <- function() {
         target <- 1 - alpha_val
         cumul  <- cumsum(probs_ord)
         
-        cutoff_idx <- which(cumul >= target)[1]
+        tol <- 1e-12
+        cutoff_idx <- which(cumul >= target - tol)[1]
         if (is.na(cutoff_idx)) cutoff_idx <- length(probs_ord)  # if all zero, take all
         
         # selected candidate set (each is a length-T1 future sequence, without the start state)
         cp_set <- lapply(seq_len(cutoff_idx), function(j) as.integer(grid_df[ord[j], ]))
+        cp_set <- Filter(path_allowed, cp_set)
         
         mm_seq_test_vec <- as.integer(unlist(mm_seq_test))
         

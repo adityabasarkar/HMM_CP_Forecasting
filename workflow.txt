@@ -10,6 +10,6 @@ Program execution order (ensure the working directory is the folder containing t
 	d. src/entry_points/simulations_and_analysis/mc_sim_state_compositions.R
 
 3. Visualizations
-	a. src/entry_points/visualizations/cp_set_state_comp_vis.R
+	a. src/entry_points/visualizations/set_state_comp_visualization.R
 	b. src/entry_points/visualizations/fatality_rel_curve_visualization.R
 	c. src/entry_points/visualizations/mc_sim_rel_curve_visualization.R

@@ -14,8 +14,8 @@ sourceCpp("src/cpp_files/hmm_conf_pred_final.cpp")
 data_dir <- "outputs/r_objects"
 data <- readRDS(file.path(data_dir, "preprocessed_data.rds"))
 
-target_coverage_grid <- seq(1.0, 0.5, by = -0.05)
-test_lengths <- list(1, 3, 5)
+target_coverage_grid <- seq(0.5, 1.0, by = 0.05)
+test_lengths <- as.list(1:6)
 calib_len <- 200L
 k <- 4L
 N_TRIALS_RANDOM <- 100L
@@ -111,10 +111,14 @@ mc_avg_set_sizes <- function() {
           states01 <- c(start_state, as.integer(seq))
           from <- states01[-length(states01)] + 1L
           to <- states01[-1] + 1L
-          if (any(allowable_transitions[cbind(from, to)] == 0)) {
-            return(0)
-          }
           prod(transition_probs[cbind(from, to)])
+        }
+        
+        path_allowed <- function(seq) {
+          states01 <- c(start_state, as.integer(seq))
+          from <- states01[-length(states01)] + 1L
+          to <- states01[-1] + 1L
+          all(allowable_transitions[cbind(from, to)] == 1)
         }
         
         probs <- apply(grid_df, 1L, path_prob)
@@ -122,9 +126,15 @@ mc_avg_set_sizes <- function() {
         probs_ord <- probs[ord]
         
         cumul <- cumsum(probs_ord)
-        cutoff_idx <- which(cumul >= cov_target)[1]
+        
+        tol <- 1e-12
+        cutoff_idx <- which(cumul >= cov_target - tol)[1]
         if (is.na(cutoff_idx)) cutoff_idx <- length(probs_ord)
-        lik_sizes[i] <- cutoff_idx
+        
+        likelihood_set <- lapply(seq_len(cutoff_idx), function(j) as.integer(grid_df[ord[j], ]))
+        likelihood_set <- Filter(path_allowed, likelihood_set)
+        
+        lik_sizes[i] <- length(likelihood_set)
       }
       
       results <- results %>%

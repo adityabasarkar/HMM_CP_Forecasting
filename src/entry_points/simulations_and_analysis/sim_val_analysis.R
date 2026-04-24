@@ -115,7 +115,8 @@ get_trial_counts <- function(T1) {
   target <- 1 - alpha
   probs_ord <- sort(probs, decreasing = TRUE)
   cumul <- cumsum(probs_ord)
-  cutoff_idx <- which(cumul >= target)[1]
+  tol <- 1e-12
+  cutoff_idx <- which(cumul >= target - tol)[1]
   if (is.na(cutoff_idx)) {
     cutoff_idx <- length(probs_ord)
   }
