@@ -207,7 +207,7 @@ get_likelihood_set_prop = function(end_id, ctr_id, data) {
 }
 
 # ------------------------------------------------------------------------------
-# iterate coinflip -------------------------------------------------------------
+# Get all results Section 5 ----------------------------------------------------
 # ------------------------------------------------------------------------------
 for(coinflip in c(TRUE,FALSE)) {
 
@@ -373,93 +373,70 @@ for(coinflip in c(TRUE,FALSE)) {
 
 }
 
-# # ------------------------------------------------------------------------------
-# # Invesigate Uganda ------------------------------------------------------------
-# # ------------------------------------------------------------------------------
-# uganda_id = 57
-# uganda_states = data_clean$state[data_clean$country_id == uganda_id]
-# init_state_uganda = c(1,0,0,0)
-# 
-# est_uganda <- estimate_transition_probabilities(as.list(data_clean$state[data_clean$country_id == uganda_id] - 1), 4)
-# 
-# temp = est_uganda
-# for(i in 1:100) {
-#   print(i)
-#   temp = temp %*% est_uganda
-#   print(temp)
-# }
-# 
-# marginal_uganda = init_state_uganda
-# for(i in 2:length(uganda_states)) {
-#   marginal_uganda = matrix(marginal_uganda, nrow = 1) %*% est_uganda
-# }
-# 
-# P_true = matrix(c(0.895, 0.105, 0, 0, 
-#                   0, 0, 0.500, 0.500,
-#                   0, 0, 0.722, 0.278,
-#                   0.653, 0.347, 0, 0), byrow = T, nrow = 4)
-# 
-# s2_marg = c(0,1,0,0)
-# norms = NULL
-# 
-# for(i in 1:100){
-#   s2_prev =s2_marg
-#   s2_marg = matrix(s2_marg, nrow = 1) %*% P_true
-#   norms = c(norms, sum(abs(s2_marg - s2_prev)))
-#   print(i)
-#   print(s2_marg)
-# }
+# ------------------------------------------------------------------------------
+# comparing CP set sizes -------------------------------------------------------
+# ------------------------------------------------------------------------------
+library(arrow)
+library(dplyr)
+library(tibble)
 
-# # ------------------------------------------------------------------------------
-# # comparing CP set sizes -------------------------------------------------------
-# # ------------------------------------------------------------------------------
-# library(arrow)
-# library(dplyr)
-# library(tibble)
-# 
-# library(RcppArmadillo)
-# library(Rcpp, quietly = TRUE)
-# library(RcppArmadillo, quietly = TRUE)
-# library(RcppDist, quietly = TRUE)
-# 
-# set.seed(2569)
-# 
-# sourceCpp("src/cpp_files/hmm_conf_pred_final.cpp")
-# 
-# data_dir <- "outputs/r_objects"
-# data <- readRDS(file.path(data_dir, "preprocessed_data.rds"))
-# 
-# target_coverage_grid <- seq(1.0, 0.5, by = -0.05)
-# test_lengths <- list(1, 3, 5)
-# calib_len <- 200L
-# k <- 4L
-# N_TRIALS_RANDOM <- 100L
-# 
-# allowable_transitions <- matrix(
-#   c(1,1,0,0,
-#     0,0,1,1,
-#     0,0,1,1,
-#     1,1,0,0),
-#   nrow = 4,
-#   ncol = 4,
-#   byrow = TRUE
-# )
-# 
-# unique_ctrs <- unique(data$country_id)
-# average_mat <- matrix(0, nrow = k, ncol = k)
-# for (ctr in unique_ctrs) {
-#   est <- estimate_transition_probabilities(as.list(data$state[data$country_id == ctr] - 1), k)
-#   if (est[4, 4] > 0) {
-#     print(ctr)
-#   }
-#   average_mat <- average_mat + est
-# }
-# P <- average_mat / length(unique_ctrs)
-# P_masked <- P * allowable_transitions
-# row_sums <- rowSums(P_masked)
-# P <- P_masked
-# P[row_sums > 0, ] <- P_masked[row_sums > 0, ] / row_sums[row_sums > 0]
-# 
+library(RcppArmadillo)
+library(Rcpp, quietly = TRUE)
+library(RcppArmadillo, quietly = TRUE)
+library(RcppDist, quietly = TRUE)
+
+set.seed(2569)
+
+sourceCpp("src/cpp_files/hmm_conf_pred_final.cpp")
+
+data_dir <- "outputs/r_objects"
+data <- readRDS(file.path(data_dir, "preprocessed_data.rds"))
+
+target_coverage_grid <- seq(1.0, 0.5, by = -0.05)
+test_lengths <- list(1, 3, 5)
+calib_len <- 200L
+k <- 4L
+N_TRIALS_RANDOM <- 100L
+
+allowable_transitions <- matrix(
+  c(1,1,0,0,
+    0,0,1,1,
+    0,0,1,1,
+    1,1,0,0),
+  nrow = 4,
+  ncol = 4,
+  byrow = TRUE
+)
+
+unique_ctrs <- unique(data$country_id)
+average_mat <- matrix(0, nrow = k, ncol = k)
+for (ctr in unique_ctrs) {
+  est <- estimate_transition_probabilities(as.list(data$state[data$country_id == ctr] - 1), k)
+  if (est[4, 4] > 0) {
+    print(ctr)
+  }
+  average_mat <- average_mat + est
+}
+P <- average_mat / length(unique_ctrs)
+P_masked <- P * allowable_transitions
+row_sums <- rowSums(P_masked)
+P <- P_masked
+P[row_sums > 0, ] <- P_masked[row_sums > 0, ] / row_sums[row_sums > 0]
+
+marg_dist = matrix(c(0,1,0,0),nrow = 1)
+error = 0.000000001
+error_big = T
+while(error_big) {
+  curr_dist = marg_dist
+  marg_dist = marg_dist %*% P
+  
+  error_diff = abs(marg_dist - curr_dist)
+  if(sum(error_diff < error) == 4) {
+    error_big = F
+  }
+  print(marg_dist)
+}
+
 # generate_sequence_mm <- function(P, k, n) {
 #   return_sequence <- list()
 #   possible_states <- 0:(k - 1)
