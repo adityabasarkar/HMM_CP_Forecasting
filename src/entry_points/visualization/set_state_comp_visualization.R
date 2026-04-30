@@ -5,6 +5,8 @@ library(stringr)
 library(scales)
 
 data_dir = "outputs/r_objects"
+plot_dir = "outputs/plots"
+dir.create(plot_dir, recursive = TRUE, showWarnings = FALSE)
 
 # ---- Read RDS objects (these now contain results + summary) ----
 cp_obj  <- readRDS(file.path(data_dir, "fatality_cp_compositions.rds"))
@@ -234,8 +236,8 @@ p5 <- plot_cp_results(
 )
 
 # Save to PDF
-ggsave("outputs/plots/fatality_cp_compositions.pdf",         p1, width = 12, height = 5, units = "in", device = cairo_pdf)
-ggsave("outputs/plots/fatality_likelihood_compositions.pdf", p2, width = 12, height = 5, units = "in", device = cairo_pdf)
-ggsave("outputs/plots/fatality_cp_compositions_12.pdf",         p3, width = 12, height = 5, units = "in", device = cairo_pdf)
-ggsave("outputs/plots/fatality_likelihood_compositions_12.pdf", p4, width = 12, height = 5, units = "in", device = cairo_pdf)
-ggsave("outputs/plots/sim_compare_compositions.pdf",         p5, width = 10, height = 5, units = "in", device = cairo_pdf)
+ggsave(file.path(plot_dir, "fatality_cp_compositions.pdf"),         p1, width = 12, height = 5, units = "in", device = cairo_pdf)
+ggsave(file.path(plot_dir, "fatality_likelihood_compositions.pdf"), p2, width = 12, height = 5, units = "in", device = cairo_pdf)
+ggsave(file.path(plot_dir, "fatality_cp_compositions_12.pdf"),         p3, width = 12, height = 5, units = "in", device = cairo_pdf)
+ggsave(file.path(plot_dir, "fatality_likelihood_compositions_12.pdf"), p4, width = 12, height = 5, units = "in", device = cairo_pdf)
+ggsave(file.path(plot_dir, "sim_compare_compositions.pdf"),         p5, width = 10, height = 5, units = "in", device = cairo_pdf)

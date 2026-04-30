@@ -74,7 +74,42 @@ outputs/r_objects/preprocessed_data.rds
 
 Then run the simulation and fatality analysis scripts. These scripts may take a while because several of them repeatedly compile or call the C++ conformal prediction routines.
 
-Finally, run the visualization scripts. They expect the corresponding `.rds` files to already exist in `outputs/r_objects/` and write PDFs to `outputs/plots/`.
+Finally, run the visualization scripts. They expect the corresponding `.rds` files to already exist in `outputs/r_objects/`, create `outputs/plots/` if needed, and write PDFs there.
+
+## Reproducible Artifacts
+
+The documented workflow regenerates these plots:
+
+```text
+outputs/plots/avg_set_size_mc.pdf
+outputs/plots/fatality_cp_compositions.pdf
+outputs/plots/fatality_cp_compositions_12.pdf
+outputs/plots/fatality_likelihood_compositions.pdf
+outputs/plots/fatality_likelihood_compositions_12.pdf
+outputs/plots/rel_curve_cp_fatal.pdf
+outputs/plots/rel_curve_cp_mc.pdf
+outputs/plots/rel_curve_lik_fatal.pdf
+outputs/plots/rel_curve_lik_mc.pdf
+outputs/plots/sim_compare_compositions.pdf
+outputs/plots/sim_val_analysis_table.pdf
+```
+
+The optional exploratory set analysis can also regenerate the limitation figures:
+
+```r
+source("src/exploratory_set_analysis.R")
+```
+
+That script writes:
+
+```text
+outputs/plots/limitation_large.pdf
+outputs/plots/limitation_large_0.pdf
+outputs/plots/limitation_large_1.pdf
+outputs/plots/limitation_small.pdf
+outputs/plots/limitation_small_0.pdf
+outputs/plots/limitation_small_1.pdf
+```
 
 ## Expected Generated Files
 
@@ -96,6 +131,6 @@ If another user clones the project, they must provide the raw CSV files and reru
 - If `arrow` fails to install on Windows, restart RStudio and try installing it again from a clean R session.
 - Several analysis scripts use random simulation. The maintained scripts call `set.seed()` so results should be reproducible for the same R/package environment.
 
-## Script Naming
+## Script Organization
 
-The main workflow lives under `src/entry_points/`. Older exploratory scripts are kept in `src/` with descriptive names so they are easier to identify, but they are not required for the standard workflow.
+The main reproducible workflow lives under `src/entry_points/`. The only script directly under `src/` is `src/exploratory_set_analysis.R`, which is optional and is used to regenerate the limitation figures.

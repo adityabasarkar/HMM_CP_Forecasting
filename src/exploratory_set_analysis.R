@@ -19,6 +19,8 @@ data_full  = data_full[!is.na(data_full$name), , drop=F]
 sourceCpp("src/cpp_files/hmm_conf_pred_final.cpp")
 
 data_dir = "outputs/r_objects"
+plot_dir = "outputs/plots"
+dir.create(plot_dir, recursive = TRUE, showWarnings = FALSE)
 data1 = readRDS(file.path(data_dir, "preprocessed_data.rds"))
 data2 = readRDS(file.path(data_dir, "preprocessed_data_full.rds"))
 
@@ -368,8 +370,13 @@ for(coinflip in c(TRUE,FALSE)) {
     "Conflict State Data, alpha = 0.2"
   )
 
-  ggsave(paste0("outputs/plots/limitation_large_", as.numeric(coinflip), ".pdf"), p4, width = 12, height = 4, units = "in", device = "pdf")
-  ggsave(paste0("outputs/plots/limitation_small_", as.numeric(coinflip), ".pdf"), p5, width = 12, height = 4, units = "in", device = "pdf")
+  ggsave(file.path(plot_dir, paste0("limitation_large_", as.numeric(coinflip), ".pdf")), p4, width = 12, height = 4, units = "in", device = "pdf")
+  ggsave(file.path(plot_dir, paste0("limitation_small_", as.numeric(coinflip), ".pdf")), p5, width = 12, height = 4, units = "in", device = "pdf")
+
+  if (isTRUE(coinflip)) {
+    ggsave(file.path(plot_dir, "limitation_large.pdf"), p4, width = 12, height = 4, units = "in", device = "pdf")
+    ggsave(file.path(plot_dir, "limitation_small.pdf"), p5, width = 12, height = 4, units = "in", device = "pdf")
+  }
 
 }
 

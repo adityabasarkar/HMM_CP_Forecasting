@@ -4,6 +4,8 @@ library(grid)
 library(gridExtra)
 
 data_dir <- "outputs/r_objects"
+plot_dir <- "outputs/plots"
+dir.create(plot_dir, recursive = TRUE, showWarnings = FALSE)
 
 sim_val_summary_table <- readRDS(file.path(data_dir, "sim_val_summary_table.rds"))
 
@@ -91,7 +93,7 @@ table_plot <- arrangeGrob(
 ggsave(
   filename = "sim_val_analysis_table.pdf",
   plot = table_plot,
-  path = "outputs/plots",
+  path = plot_dir,
   width = 16,
   height = 5.3,
   units = "in",

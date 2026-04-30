@@ -94,14 +94,44 @@ These scripts read generated .rds files from:
 They write PDF figures and tables to:
   outputs/plots/
 
+The visualization scripts create outputs/plots/ automatically if it does not
+already exist.
 
-4. Optional exploratory scripts
--------------------------------
+Expected plots from the standard workflow:
+  outputs/plots/avg_set_size_mc.pdf
+  outputs/plots/fatality_cp_compositions.pdf
+  outputs/plots/fatality_cp_compositions_12.pdf
+  outputs/plots/fatality_likelihood_compositions.pdf
+  outputs/plots/fatality_likelihood_compositions_12.pdf
+  outputs/plots/rel_curve_cp_fatal.pdf
+  outputs/plots/rel_curve_cp_mc.pdf
+  outputs/plots/rel_curve_lik_fatal.pdf
+  outputs/plots/rel_curve_lik_mc.pdf
+  outputs/plots/sim_compare_compositions.pdf
+  outputs/plots/sim_val_analysis_table.pdf
 
-The standard workflow does not require the exploratory scripts directly under
-src/. They are retained for development history and ad hoc experiments.
+
+4. Optional exploratory script
+------------------------------
+
+The standard workflow does not require the exploratory script directly under
+src/. It is retained for the limitation-figure analysis.
 
 Use the maintained entry-point scripts above when reproducing the project.
+
+To regenerate the limitation figures that are present in older local output
+folders, run this after preprocessing:
+  src/exploratory_set_analysis.R
+
+It writes:
+  outputs/plots/limitation_large.pdf
+  outputs/plots/limitation_large_0.pdf
+  outputs/plots/limitation_large_1.pdf
+  outputs/plots/limitation_small.pdf
+  outputs/plots/limitation_small_0.pdf
+  outputs/plots/limitation_small_1.pdf
+
+No other scripts directly under src/ are required.
 
 
 Common failure modes

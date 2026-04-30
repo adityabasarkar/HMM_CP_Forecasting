@@ -2,6 +2,8 @@ library(ggplot2)
 library(dplyr)
 
 data_dir = "outputs/r_objects"
+plot_dir = "outputs/plots"
+dir.create(plot_dir, recursive = TRUE, showWarnings = FALSE)
 
 mc_rel_curve_cp_set_data = readRDS(file.path(data_dir, "mc_rel_curve_cp_set_data.rds"))
 mc_rel_curve_likelihood_data = readRDS(file.path(data_dir, "mc_rel_curve_likelihood_data.rds"))
@@ -93,6 +95,6 @@ p_lik <- ggplot(
 #   coord_equal(xlim = c(0.5, 1), ylim = c(0.5, 1)) +
 #   theme_minimal()
 
-ggsave("outputs/plots/rel_curve_cp_mc.pdf",   p_cp, width = 5, height = 5, units = "in", device = cairo_pdf)
-ggsave("outputs/plots/rel_curve_lik_mc.pdf",      p_lik, width = 5, height = 5, units = "in", device = cairo_pdf)
+ggsave(file.path(plot_dir, "rel_curve_cp_mc.pdf"),   p_cp, width = 5, height = 5, units = "in", device = cairo_pdf)
+ggsave(file.path(plot_dir, "rel_curve_lik_mc.pdf"),      p_lik, width = 5, height = 5, units = "in", device = cairo_pdf)
 # ggsave("outputs/plots/rel_curve_anchor_mc.pdf",  p_zero, width = 10, height = 5, units = "in", device = cairo_pdf)

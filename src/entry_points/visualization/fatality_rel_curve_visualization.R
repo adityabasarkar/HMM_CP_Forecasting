@@ -2,6 +2,8 @@ library(ggplot2)
 library(dplyr)
 
 data_dir = "outputs/r_objects"
+plot_dir = "outputs/plots"
+dir.create(plot_dir, recursive = TRUE, showWarnings = FALSE)
 
 cp_original_rel_data_fatality = readRDS(file.path(data_dir, "cp_original_rel_data_fatality.rds"))
 likelihood_rel_data_fatality = readRDS(file.path(data_dir, "likelihood_rel_data_fatality.rds"))
@@ -93,6 +95,6 @@ p_lik <- ggplot(
 #   coord_equal(xlim = c(0.5, 1), ylim = c(0.5, 1)) +
 #   theme_minimal()
 
-ggsave("outputs/plots/rel_curve_cp_fatal.pdf",   p_cp, width = 5, height = 5, units = "in", device = cairo_pdf)
-ggsave("outputs/plots/rel_curve_lik_fatal.pdf",      p_lik, width = 5, height = 5, units = "in", device = cairo_pdf)
+ggsave(file.path(plot_dir, "rel_curve_cp_fatal.pdf"),   p_cp, width = 5, height = 5, units = "in", device = cairo_pdf)
+ggsave(file.path(plot_dir, "rel_curve_lik_fatal.pdf"),      p_lik, width = 5, height = 5, units = "in", device = cairo_pdf)
 # ggsave("outputs/plots/rel_curve_anchor_fatal.pdf",  p_zero, width = 10, height = 5, units = "in", device = cairo_pdf)
