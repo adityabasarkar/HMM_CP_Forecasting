@@ -4,3 +4,6 @@
 *.vscode
 country_list.csv
 markov_data2507.csv
+data/raw/
+outputs/plots/
+outputs/r_objects/

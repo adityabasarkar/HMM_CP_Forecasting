@@ -1,15 +1,122 @@
-Program execution order (ensure the working directory is the folder containing the README.md and workflow.txt files):
+HMM CP Forecasting workflow
+===========================
+
+Run every script from the repository root, which is the folder containing
+README.md and workflow.txt.
+
+In RStudio:
+1. Open the repository folder.
+2. Confirm getwd() points to the repository root.
+3. Open each script below and click Source, or run source("path/to/script.R")
+   in the Console.
+
+
+0. One-time setup
+-----------------
+
+Install the packages listed in README.md.
+
+On Windows, install Rtools if Rcpp::sourceCpp() cannot compile:
+  src/cpp_files/hmm_conf_pred_final.cpp
+
+Place the raw data files here:
+  data/raw/markov_data2507.csv
+  data/raw/country_list.csv
+
+These folders are generated locally and ignored by git:
+  outputs/r_objects/
+  outputs/plots/
+
 
 1. Preprocessing
-	a. src/entry_points/preprocessing/preprocess.R
+----------------
 
-2. Simulations
-	a. src/entry_points/simulations_and_analysis/fatality_rel_curves.R
-	b. src/entry_points/simulations_and_analysis/fatality_state_compositions.R
-	c. src/entry_points/simulations_and_analysis/mc_sim_rel_curves.R
-	d. src/entry_points/simulations_and_analysis/mc_sim_state_compositions.R
+Run:
+  src/entry_points/preprocessing/preprocess.R
+
+Reads:
+  data/raw/markov_data2507.csv
+  data/raw/country_list.csv
+
+Writes:
+  outputs/r_objects/preprocessed_data_full.rds
+  outputs/r_objects/preprocessed_data.rds
+
+Do this first. All downstream analysis scripts expect these .rds files.
+
+
+2. Simulations and analysis
+---------------------------
+
+Run these after preprocessing. They can be run one at a time.
+
+Core fatality analyses:
+  src/entry_points/simulations_and_analysis/fatality_rel_curves.R
+  src/entry_points/simulations_and_analysis/fatality_state_compositions.R
+
+Monte Carlo simulation analyses:
+  src/entry_points/simulations_and_analysis/mc_sim_rel_curves.R
+  src/entry_points/simulations_and_analysis/mc_sim_state_compositions.R
+  src/entry_points/simulations_and_analysis/mc_sim_eff_analysis.R
+
+Simulation validation:
+  src/entry_points/simulations_and_analysis/sim_val_analysis.R
+
+These scripts read:
+  outputs/r_objects/preprocessed_data.rds
+  outputs/r_objects/preprocessed_data_full.rds
+
+They write generated .rds files under:
+  outputs/r_objects/
+
 
 3. Visualizations
-	a. src/entry_points/visualizations/set_state_comp_visualization.R
-	b. src/entry_points/visualizations/fatality_rel_curve_visualization.R
-	c. src/entry_points/visualizations/mc_sim_rel_curve_visualization.R
+-----------------
+
+Run these after the matching analysis outputs exist.
+
+Reliability curves:
+  src/entry_points/visualization/fatality_rel_curve_visualization.R
+  src/entry_points/visualization/mc_sim_rel_curve_visualization.R
+
+State composition figures:
+  src/entry_points/visualization/set_state_comp_visualization.R
+
+Monte Carlo set-size table:
+  src/entry_points/visualization/avg_set_cardinality_visualization.R
+
+Simulation validation table:
+  src/entry_points/visualization/sim_val_visualization.R
+
+These scripts read generated .rds files from:
+  outputs/r_objects/
+
+They write PDF figures and tables to:
+  outputs/plots/
+
+
+4. Optional exploratory scripts
+-------------------------------
+
+The standard workflow does not require the exploratory scripts directly under
+src/. They are retained for development history and ad hoc experiments.
+
+Use the maintained entry-point scripts above when reproducing the project.
+
+
+Common failure modes
+--------------------
+
+- File not found in data/raw:
+  Add markov_data2507.csv and country_list.csv to data/raw/.
+
+- Missing .rds in outputs/r_objects:
+  Run preprocessing first, then run the corresponding analysis script before
+  running a visualization script.
+
+- sourceCpp compilation failure:
+  Install Rtools on Windows and restart RStudio before rerunning the script.
+
+- Path errors:
+  Confirm getwd() is the repository root. Do not run scripts with the working
+  directory set to src/ or an entry_points subfolder.
