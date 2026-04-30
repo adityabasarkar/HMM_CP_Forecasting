@@ -2,3 +2,5 @@
 .Rhistory
 *.exe
 *.vscode
+country_list.csv
+markov_data2507.csv
