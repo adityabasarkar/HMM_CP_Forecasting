@@ -8,6 +8,8 @@ library(RcppArmadillo, quietly = T)
 library(RcppDist, quietly = T)
 
 sourceCpp("src/cpp_files/hmm_conf_pred_final.cpp")
+sourceCpp("src/cpp_files/naive_cp.cpp")
+sourceCpp("src/cpp_files/weighted_cp.cpp")
 
 
 # Retrieve preprocessed data from rds
@@ -17,7 +19,30 @@ data = readRDS(file.path(data_dir, "preprocessed_data.rds"))
 alpha_grid <- seq(0.0, 0.5, by = 0.05)
 test_lengths <- 1:6
 calib_len <- 200L
+split_fraction <- 0.7
+decay <- 0.98
 set.seed(2569)
+
+allowable_transitions <- matrix(
+  c(1,1,0,0,
+    0,0,1,1,
+    0,0,1,1,
+    1,1,0,0),
+  nrow = 4,
+  ncol = 4,
+  byrow = TRUE
+)
+
+# All methods and alpha values use the same country forecasting windows.
+window_starts <- list()
+for (T1 in test_lengths) {
+  starts <- list()
+  for (cid in unique(data$country_id)) {
+    idx_lim_c <- sum(data$country_id == cid) - (calib_len + T1) + 1L
+    starts[[as.character(cid)]] <- if (idx_lim_c > 0L) sample.int(idx_lim_c, 1L) else NA_integer_
+  }
+  window_starts[[as.character(T1)]] <- starts
+}
 
 
 mk_pairs <- function(states_vec) lapply(states_vec, function(s) s-1)
@@ -27,6 +52,8 @@ cp_original_rel_curve <- function() {
     test_length        = integer(),
     target_coverage    = numeric(),
     empirical_coverage = numeric(),
+    empirical_coverage_naive = numeric(),
+    empirical_coverage_weighted = numeric(),
   )
   
   unique_cids <- unique(data$country_id)
@@ -35,6 +62,8 @@ cp_original_rel_curve <- function() {
     for (T1 in test_lengths) {
       
       num_included <- 0L
+      num_included_naive <- 0L
+      num_included_weighted <- 0L
       num_tests    <- 0L
       
       for (cid in unique_cids) {
@@ -45,7 +74,7 @@ cp_original_rel_curve <- function() {
         idx_lim_c <- n_c - (calib_len + T1) + 1L
         if (idx_lim_c <= 0L) next
         
-        start_idx <- sample(seq_len(idx_lim_c), 1)
+        start_idx <- window_starts[[as.character(T1)]][[as.character(cid)]]
         cal_idx   <- start_idx : (start_idx + calib_len - 1L)
         test_idx  <- (start_idx + calib_len) : (start_idx + calib_len + T1 - 1L)
         
@@ -57,6 +86,10 @@ cp_original_rel_curve <- function() {
         
         p_val <- get_p_val(mm_seq_calib, mm_seq_test, 1000, 4, 4, FALSE, "mm")
         if (p_val > alpha_val) num_included <- num_included + 1L
+        naive_p_val <- get_naive_p_val(mm_seq_calib, mm_seq_test, 4L, split_fraction, allowable_transitions)
+        weighted_p_val <- get_weighted_p_val(mm_seq_calib, mm_seq_test, 4L, split_fraction, decay, allowable_transitions)
+        if (naive_p_val > alpha_val) num_included_naive <- num_included_naive + 1L
+        if (weighted_p_val > alpha_val) num_included_weighted <- num_included_weighted + 1L
         num_tests <- num_tests + 1L
         
         print(
@@ -75,7 +108,9 @@ cp_original_rel_curve <- function() {
         add_row(
           test_length        = T1,
           target_coverage    = 1 - alpha_val,
-          empirical_coverage = empirical_cov
+          empirical_coverage = empirical_cov,
+          empirical_coverage_naive = if (num_tests > 0L) num_included_naive / num_tests else NA_real_,
+          empirical_coverage_weighted = if (num_tests > 0L) num_included_weighted / num_tests else NA_real_
         )
     }
   }
@@ -109,7 +144,7 @@ likelihood_rel_curve <- function() {
         idx_lim_c <- n_c - (calib_len + T1) + 1L
         if (idx_lim_c <= 0L) next
         
-        start_idx <- sample(seq_len(idx_lim_c), 1)
+        start_idx <- window_starts[[as.character(T1)]][[as.character(cid)]]
         cal_idx   <- start_idx : (start_idx + calib_len - 1L)
         test_idx  <- (start_idx + calib_len) : (start_idx + calib_len + T1 - 1L)
         
@@ -327,8 +362,14 @@ likelihood_rel_curve <- function() {
 
 cp_original_rel_data_fatality <- cp_original_rel_curve() # A4
 likelihood_rel_data_fatality <- likelihood_rel_curve() # A5
+naive_rel_data_fatality <- cp_original_rel_data_fatality %>%
+  transmute(test_length, target_coverage, empirical_coverage = empirical_coverage_naive)
+weighted_rel_data_fatality <- cp_original_rel_data_fatality %>%
+  transmute(test_length, target_coverage, empirical_coverage = empirical_coverage_weighted)
 # cp_added_zero_rel_data_fatality <- cp_added_zero_rel_curve() # A6
 
 saveRDS(cp_original_rel_data_fatality, file.path(data_dir, "cp_original_rel_data_fatality.rds"))
 saveRDS(likelihood_rel_data_fatality, file.path(data_dir, "likelihood_rel_data_fatality.rds"))
+saveRDS(naive_rel_data_fatality, file.path(data_dir, "naive_rel_data_fatality.rds"))
+saveRDS(weighted_rel_data_fatality, file.path(data_dir, "weighted_rel_data_fatality.rds"))
 # saveRDS(cp_added_zero_rel_data_fatality, file.path(data_dir, "cp_added_zero_rel_data_fatality.rds"))

@@ -10,6 +10,8 @@ library(RcppDist, quietly = TRUE)
 set.seed(2569)
 
 sourceCpp("src/cpp_files/hmm_conf_pred_final.cpp")
+sourceCpp("src/cpp_files/naive_cp.cpp")
+sourceCpp("src/cpp_files/weighted_cp.cpp")
 
 data_dir <- "outputs/r_objects"
 data <- readRDS(file.path(data_dir, "preprocessed_data.rds"))
@@ -17,6 +19,8 @@ data <- readRDS(file.path(data_dir, "preprocessed_data.rds"))
 target_coverage_grid <- seq(1.0, 0.5, by = -0.05)
 test_lengths <- list(1, 3, 5)
 calib_len <- 200L
+split_fraction <- 0.7
+decay <- 0.98
 k <- 4L
 N_TRIALS_RANDOM <- 100L
 
@@ -65,7 +69,9 @@ mc_avg_set_sizes <- function() {
     target_coverage = numeric(),
     alpha = numeric(),
     avg_set_size_cp = numeric(),
-    avg_set_size_lik = numeric()
+    avg_set_size_lik = numeric(),
+    avg_set_size_naive = numeric(),
+    avg_set_size_weighted = numeric()
   )
   
   for (T1 in test_lengths) {
@@ -82,6 +88,8 @@ mc_avg_set_sizes <- function() {
       
       cp_sizes <- numeric(N_TRIALS_RANDOM)
       lik_sizes <- numeric(N_TRIALS_RANDOM)
+      naive_sizes <- numeric(N_TRIALS_RANDOM)
+      weighted_sizes <- numeric(N_TRIALS_RANDOM)
       
       for (i in seq_len(N_TRIALS_RANDOM)) {
         
@@ -102,6 +110,8 @@ mc_avg_set_sizes <- function() {
           TRUE
         )
         cp_sizes[i] <- length(cp_set)
+        naive_sizes[i] <- length(get_naive_cp_set(mm_seq_calib, as.integer(T1), k, split_fraction, alpha_val, allowable_transitions))
+        weighted_sizes[i] <- length(get_weighted_cp_set(mm_seq_calib, as.integer(T1), k, split_fraction, alpha_val, decay, allowable_transitions))
         
         transition_probs <- estimate_transition_probabilities(mm_seq_calib, 4)
         start_state <- mm_seq_calib[[length(mm_seq_calib)]][1]
@@ -132,7 +142,9 @@ mc_avg_set_sizes <- function() {
           target_coverage = cov_target,
           alpha = alpha_val,
           avg_set_size_cp = mean(cp_sizes),
-          avg_set_size_lik = mean(lik_sizes)
+          avg_set_size_lik = mean(lik_sizes),
+          avg_set_size_naive = mean(naive_sizes),
+          avg_set_size_weighted = mean(weighted_sizes)
         )
       
       print(paste(

@@ -10,6 +10,8 @@ library(RcppDist, quietly = T)
 set.seed(2569)
 
 sourceCpp("src/cpp_files/hmm_conf_pred_final.cpp")
+sourceCpp("src/cpp_files/naive_cp.cpp")
+sourceCpp("src/cpp_files/weighted_cp.cpp")
 
 data_dir = "outputs/r_objects"
 data = readRDS(file.path(data_dir, "preprocessed_data.rds"))
@@ -17,6 +19,8 @@ data = readRDS(file.path(data_dir, "preprocessed_data.rds"))
 alpha_grid <- seq(0.0, 0.5, by = 0.05)
 test_lengths <- 1:6
 calib_len <- 200L
+split_fraction <- 0.7
+decay <- 0.98
 k = 4
 N_TRIALS_RANDOM <- 500       # trials per (alpha, test_len) in random panel
 
@@ -65,23 +69,35 @@ generate_sequence_mm <- function(P, k, n) {
   return(return_sequence)
 }
 
+# Reuse each simulated history and test path across methods and alpha values.
+simulation_sequences <- list()
+for (T1 in test_lengths) {
+  simulation_sequences[[as.character(T1)]] <- lapply(seq_len(N_TRIALS_RANDOM), function(i) {
+    generate_sequence_mm(P, k, calib_len + T1)
+  })
+}
+
 mc_rel_curve_cp_set <- function() {
   
   rel_curves_results <- tibble(
     test_length        = integer(),
     target_coverage    = numeric(),
     empirical_coverage = numeric(),
+    empirical_coverage_naive = numeric(),
+    empirical_coverage_weighted = numeric(),
   )
   
   for (alpha_val in alpha_grid) {
     for (T1 in test_lengths) {
       
       num_included <- 0L
+      num_included_naive <- 0L
+      num_included_weighted <- 0L
       num_tests    <- 0L
       
       for (i in 1:N_TRIALS_RANDOM) {
         
-        seq = generate_sequence_mm(P, k, calib_len + T1)
+        seq = simulation_sequences[[as.character(T1)]][[i]]
         train_seq = seq[1 : calib_len]
         test_seq = seq[(calib_len+1) : (calib_len+T1)]
         
@@ -96,6 +112,10 @@ mc_rel_curve_cp_set <- function() {
         )
         
         if (p_val > alpha_val) num_included <- num_included + 1L
+        naive_p_val <- get_naive_p_val(train_seq, test_seq, as.integer(k), split_fraction, allowable_transitions)
+        weighted_p_val <- get_weighted_p_val(train_seq, test_seq, as.integer(k), split_fraction, decay, allowable_transitions)
+        if (naive_p_val > alpha_val) num_included_naive <- num_included_naive + 1L
+        if (weighted_p_val > alpha_val) num_included_weighted <- num_included_weighted + 1L
         num_tests <- num_tests + 1L
         
       }
@@ -114,7 +134,9 @@ mc_rel_curve_cp_set <- function() {
         add_row(
           test_length        = T1,
           target_coverage    = 1 - alpha_val,
-          empirical_coverage = empirical_cov
+          empirical_coverage = empirical_cov,
+          empirical_coverage_naive = if (num_tests > 0L) num_included_naive / num_tests else NA_real_,
+          empirical_coverage_weighted = if (num_tests > 0L) num_included_weighted / num_tests else NA_real_
         )
     }
   }
@@ -139,7 +161,7 @@ mc_rel_curve_likelihood <- function() {
       for (i in seq_len(N_TRIALS_RANDOM)) {
         
         # simulate one sequence: calib part + test part
-        mm_seq       <- generate_sequence_mm(P, k, calib_len + T1)
+        mm_seq       <- simulation_sequences[[as.character(T1)]][[i]]
         mm_seq_calib <- mm_seq[1:calib_len]
         mm_seq_test  <- mm_seq[(calib_len + 1):(calib_len + T1)]
         
@@ -332,8 +354,14 @@ mc_rel_curve_likelihood <- function() {
 
 mc_rel_curve_cp_set_data <- mc_rel_curve_cp_set()
 mc_rel_curve_likelihood_data <- mc_rel_curve_likelihood()
+mc_rel_curve_naive_data <- mc_rel_curve_cp_set_data %>%
+  transmute(test_length, target_coverage, empirical_coverage = empirical_coverage_naive)
+mc_rel_curve_weighted_data <- mc_rel_curve_cp_set_data %>%
+  transmute(test_length, target_coverage, empirical_coverage = empirical_coverage_weighted)
 # mc_rel_curve_added_zero_data <- mc_rel_curve_added_zero()
 
 saveRDS(mc_rel_curve_cp_set_data, file.path(data_dir, "mc_rel_curve_cp_set_data.rds"))
 saveRDS(mc_rel_curve_likelihood_data, file.path(data_dir, "mc_rel_curve_likelihood_data.rds"))
+saveRDS(mc_rel_curve_naive_data, file.path(data_dir, "mc_rel_curve_naive_data.rds"))
+saveRDS(mc_rel_curve_weighted_data, file.path(data_dir, "mc_rel_curve_weighted_data.rds"))
 # saveRDS(mc_rel_curve_added_zero_data, file.path(data_dir, "mc_rel_curve_added_zero_data.rds"))

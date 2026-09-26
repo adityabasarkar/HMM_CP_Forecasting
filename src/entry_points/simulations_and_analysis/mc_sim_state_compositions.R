@@ -11,6 +11,8 @@ library(future)
 set.seed(2569)
 
 sourceCpp("src/cpp_files/hmm_conf_pred_final.cpp")
+sourceCpp("src/cpp_files/naive_cp.cpp")
+sourceCpp("src/cpp_files/weighted_cp.cpp")
 
 data_dir = "outputs/r_objects"
 data = readRDS(file.path(data_dir, "preprocessed_data.rds"))
@@ -18,6 +20,8 @@ data = readRDS(file.path(data_dir, "preprocessed_data.rds"))
 alpha = 0.2
 T1 = 6
 calib_len = 200L
+split_fraction = 0.7
+decay = 0.98
 k = 4
 
 allowable_transitions <- matrix(
@@ -159,13 +163,35 @@ get_cp_set_mat = function() {
   ctr_prop <- sweep(ctr_res, 2, colSums(ctr_res), "/")
   
   cp_set_results[["Likelihood Set"]] <- ctr_prop
+
+  # Both baselines use this same simulated history and held-out future path.
+  baseline_sets <- list(
+    "Naive CP" = get_naive_cp_set(mm_seq_calib, T1, 4L, split_fraction, alpha, allowable_transitions),
+    "Weighted CP" = get_weighted_cp_set(mm_seq_calib, T1, 4L, split_fraction, alpha, decay, allowable_transitions)
+  )
+  for (set_name in names(baseline_sets)) {
+    baseline_sets[[set_name]] <- lapply(baseline_sets[[set_name]], function(seq) c(start_state, seq))
+    baseline_set <- baseline_sets[[set_name]]
+    ctr_res <- matrix(0, nrow = 4, ncol = T1 + 1)
+    rownames(ctr_res) <- paste("State", 1:4)
+    colnames(ctr_res) <- colnames(ctr_prop)
+    for (seq in baseline_set) {
+      for (t in seq_along(seq)) {
+        state <- seq[t]
+        ctr_res[state+1, t] <- ctr_res[state+1, t] + 1
+      }
+    }
+    cp_set_results[[set_name]] <- if (length(baseline_set) > 0L) sweep(ctr_res, 2, colSums(ctr_res), "/") else ctr_res
+  }
   
   print("FINISHED")
   
   return(list(
     cp_set_results = cp_set_results,
     cp_set = cp_set,
-    lik_set = lik_set
+    lik_set = lik_set,
+    naive_set = baseline_sets[["Naive CP"]],
+    weighted_set = baseline_sets[["Weighted CP"]]
   ))
 }
 
@@ -173,6 +199,8 @@ res <- get_cp_set_mat() # C1, C2, C3
 mc_cp_set_results1 <- res$cp_set_results
 cp_set <- res$cp_set
 lik_set <- res$lik_set
+naive_set <- res$naive_set
+weighted_set <- res$weighted_set
 
 true_states <- as.integer(sub(".*TS=", "", colnames(mc_cp_set_results1[[1]])))
 true_states <- true_states - 1L
@@ -182,11 +210,13 @@ is_true_in_cp <- any(sapply(cp_set, function(seq) identical(seq, true_states)))
 is_true_in_cp
 is_true_in_lik <- any(sapply(lik_set, function(seq) identical(seq, true_states)))
 is_true_in_lik
+is_true_in_naive <- any(sapply(naive_set, function(seq) identical(seq, true_states)))
+is_true_in_weighted <- any(sapply(weighted_set, function(seq) identical(seq, true_states)))
 
 sum_table_mc_sim <- tibble::tibble(
-  set_type = c("CP Set", "Likelihood Set"),
-  num      = c(length(cp_set), length(lik_set)),
-  true_in  = c(is_true_in_cp, is_true_in_lik)
+  set_type = c("CP Set", "Likelihood Set", "Naive CP", "Weighted CP"),
+  num      = c(length(cp_set), length(lik_set), length(naive_set), length(weighted_set)),
+  true_in  = c(is_true_in_cp, is_true_in_lik, is_true_in_naive, is_true_in_weighted)
 )
 
 data_dir = "outputs/r_objects"

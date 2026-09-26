@@ -9,6 +9,8 @@ library(RcppDist, quietly = T)
 library(future)
 
 sourceCpp("src/cpp_files/hmm_conf_pred_final.cpp")
+sourceCpp("src/cpp_files/naive_cp.cpp")
+sourceCpp("src/cpp_files/weighted_cp.cpp")
 
 data_dir = "outputs/r_objects"
 data1 = readRDS(file.path(data_dir, "preprocessed_data.rds"))
@@ -22,11 +24,13 @@ end1 = 540 # Dec 2022
 end2 = 547
 alpha = 0.2
 T1 = 6
+split_fraction = 0.7
+decay = 0.98
 set.seed(2569)
 
 
 mk_pairs <- function(states_vec) lapply(states_vec, function(s) s-1)
-get_cp_set_prop = function(end_id, add_zero, ctr_id, data, coinflip = TRUE) {
+get_cp_set_prop = function(end_id, add_zero, ctr_id, data, coinflip = TRUE, method = "cp") {
   
   set.seed(2569)
   country_df = data[data$country_id == ctr_id,]
@@ -49,7 +53,13 @@ get_cp_set_prop = function(end_id, add_zero, ctr_id, data, coinflip = TRUE) {
     ncol = 4,
     byrow = TRUE
   )
-  cp_set <- get_cp_set(mm_seq_calib, c(0), T1, 1000, 4, 4, alpha, add_zero, "mm", allowable_transitions, coinflip)
+  if (method == "naive") {
+    cp_set <- get_naive_cp_set(mm_seq_calib, T1, 4L, split_fraction, alpha, allowable_transitions)
+  } else if (method == "weighted") {
+    cp_set <- get_weighted_cp_set(mm_seq_calib, T1, 4L, split_fraction, alpha, decay, allowable_transitions)
+  } else {
+    cp_set <- get_cp_set(mm_seq_calib, c(0), T1, 1000, 4, 4, alpha, add_zero, "mm", allowable_transitions, coinflip)
+  }
   
   # prepend T+0 to each sequence
   cp_set <- lapply(cp_set, function(seq) c(start_state, seq))
@@ -75,13 +85,13 @@ get_cp_set_prop = function(end_id, add_zero, ctr_id, data, coinflip = TRUE) {
     }
   }
   
-  ctr_prop <- sweep(ctr_res, 2, colSums(ctr_res), "/")
+  ctr_prop <- if (length(cp_set) > 0L) sweep(ctr_res, 2, colSums(ctr_res), "/") else ctr_res
   
   n_cp_set <- length(cp_set)
   
-  true_in_cp <- FALSE
-  true_states <- c(start_state, as.integer(mk_pairs(country_df[["state"]][true_idx])))
-  if (!is.null(true_states)) {
+  true_in_cp <- NA
+  if (max(true_idx) <= nrow(country_df)) {
+    true_states <- c(start_state, as.integer(mk_pairs(country_df[["state"]][true_idx])))
     true_in_cp <- any(sapply(cp_set, function(seq) identical(seq, true_states)))
   }
   
@@ -189,7 +199,7 @@ get_likelihood_set_prop = function(end_id, ctr_id, data) {
 
 
 
-get_cp_set_mat = function(end_id, add_zero) {
+get_cp_set_mat = function(end_id, add_zero, method = "cp") {
   
   cp_set_results = list()
   summary_rows <- list()   # will become the per-country summary table
@@ -200,7 +210,7 @@ get_cp_set_mat = function(end_id, add_zero) {
     country_name = country_df[[1, "name"]]
     
     # get CP results + diagnostics
-    res_cp <- get_cp_set_prop(end_id, add_zero, country, data1)
+    res_cp <- get_cp_set_prop(end_id, add_zero, country, data1, method = method)
     
     # 1) keep the proportions matrix as before
     cp_set_results[[country_name]] <- res_cp$ctr_prop
@@ -278,14 +288,19 @@ compare_set = function(end_id) {
   # Likelihood Set
   res3 <- get_likelihood_set_prop(end_id, 66, data2)
   comp_set_results[["Likelihood Set"]] <- res3$ctr_prop
+
+  res4 <- get_cp_set_prop(end_id, FALSE, 66, data2, method = "naive")
+  comp_set_results[["Naive CP"]] <- res4$ctr_prop
+  res5 <- get_cp_set_prop(end_id, FALSE, 66, data2, method = "weighted")
+  comp_set_results[["Weighted CP"]] <- res5$ctr_prop
   
   
   
   # one-row summary table for this country
   comp_set_summary <- tibble::tibble(
-    set_type = c("CP Set", "CP Set & Added 1", "Likelihood Set"),
-    num      = c(res1$n_cp_set, res2$n_cp_set, res3$n_lik_set),
-    true_in  = c(res1$true_in_cp, res2$true_in_cp, res3$true_in_lik)
+    set_type = c("CP Set", "CP Set & Added 1", "Likelihood Set", "Naive CP", "Weighted CP"),
+    num      = c(res1$n_cp_set, res2$n_cp_set, res3$n_lik_set, res4$n_cp_set, res5$n_cp_set),
+    true_in  = c(res1$true_in_cp, res2$true_in_cp, res3$true_in_lik, res4$true_in_cp, res5$true_in_cp)
   )
   
   return(list(
@@ -311,6 +326,16 @@ saveRDS(cp_out_fatality$cp_set_summary,
 # (optional) save compositions-only separately
 saveRDS(cp_out_fatality$cp_set_results,
         file.path(data_dir, "fatality_cp_compositions_only.rds"))
+
+# The baselines use the same history, forecast date, and summary format.
+naive_out_fatality <- get_cp_set_mat(end2, FALSE, method = "naive")
+weighted_out_fatality <- get_cp_set_mat(end2, FALSE, method = "weighted")
+saveRDS(naive_out_fatality, file.path(data_dir, "fatality_naive_compositions.rds"))
+saveRDS(weighted_out_fatality, file.path(data_dir, "fatality_weighted_compositions.rds"))
+saveRDS(naive_out_fatality$cp_set_summary, file.path(data_dir, "fatality_naive_summary.rds"))
+saveRDS(weighted_out_fatality$cp_set_summary, file.path(data_dir, "fatality_weighted_summary.rds"))
+saveRDS(naive_out_fatality$cp_set_results, file.path(data_dir, "fatality_naive_compositions_only.rds"))
+saveRDS(weighted_out_fatality$cp_set_results, file.path(data_dir, "fatality_weighted_compositions_only.rds"))
 
 
 # -----------------------

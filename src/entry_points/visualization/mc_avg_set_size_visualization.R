@@ -14,9 +14,9 @@ plot_df <- avg_set_sizes %>%
                          levels = sort(unique(test_length)),
                          labels = paste0("Prediction length ", sort(unique(test_length))))
   ) %>%
-  select(test_length, alpha, avg_set_size_cp, avg_set_size_lik) %>%
+  select(test_length, alpha, avg_set_size_cp, avg_set_size_lik, avg_set_size_naive, avg_set_size_weighted) %>%
   pivot_longer(
-    cols = c(avg_set_size_cp, avg_set_size_lik),
+    cols = c(avg_set_size_cp, avg_set_size_lik, avg_set_size_naive, avg_set_size_weighted),
     names_to = "method",
     values_to = "avg_set_size"
   ) %>%
@@ -24,9 +24,11 @@ plot_df <- avg_set_sizes %>%
     method = case_when(
       method == "avg_set_size_cp"  ~ "CP set",
       method == "avg_set_size_lik" ~ "Likelihood set",
+      method == "avg_set_size_naive" ~ "Naive CP",
+      method == "avg_set_size_weighted" ~ "Weighted CP",
       TRUE ~ method
     ),
-    method = factor(method, levels = c("CP set", "Likelihood set"))
+    method = factor(method, levels = c("CP set", "Likelihood set", "Naive CP", "Weighted CP"))
   )
 
 p <- ggplot(
@@ -35,7 +37,7 @@ p <- ggplot(
 ) +
   geom_line() +
   geom_point() +
-  facet_wrap(~ test_length) +
+  facet_wrap(~ test_length, scales = "free_y") +
   labs(
     x = "Alpha",
     y = "Average prediction set size",
