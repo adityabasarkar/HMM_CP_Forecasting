@@ -50,7 +50,7 @@ p <- ggplot(
 if (!dir.exists(plot_dir)) dir.create(plot_dir, recursive = TRUE)
 
 ggsave(
-  filename = file.path(plot_dir, "avg_set_size_mc.pdf"),
+  filename = file.path(plot_dir, "avg_set_size_mc_curves.pdf"),
   plot = p,
   width = 10,
   height = 5,
@@ -58,5 +58,4 @@ ggsave(
   device = cairo_pdf
 )
 
-print("Saved: outputs/plots/avg_set_size_mc.pdf")
-
+print("Saved: outputs/plots/avg_set_size_mc_curves.pdf")

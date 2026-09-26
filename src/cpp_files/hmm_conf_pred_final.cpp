@@ -621,7 +621,7 @@ Rcpp::List get_cp_set(
   std::vector<int> state(T1, 0);
   bool done = false;
   // create a vector for each possible proposed state sequence you will store the eq_count.
-  // 
+  Rcpp::NumericVector eq_list;
   while (!done) {
     
     // Create the augmented sequence
@@ -723,12 +723,12 @@ Rcpp::List get_cp_set(
           if (sc >= baseline + eps) g_count += 1;
           if (std::abs(sc - baseline) <= eps) eq_count += 1;
         }
-		double u = 0.0;
-		if (coin_flip) {
-			u = R::runif(0.0, 1.0);
-		} else {
-			u = 1.0;
-		}
+        double u = 0.0;
+        if (coin_flip) {
+          u = R::runif(0.0, 1.0);
+        } else {
+          u = 1.0;
+        }
         double q = (static_cast<double>(g_count) + u * static_cast<double>(eq_count))
           / static_cast<double>(M);
         
@@ -737,6 +737,8 @@ Rcpp::List get_cp_set(
           for (int i = 0; i < T1; i++) keep[i] = state[i];
           cp_set.push_back(keep);
         }
+        eq_list.push_back(eq_count);
+
       }
     }
     
@@ -750,7 +752,10 @@ Rcpp::List get_cp_set(
     
   }
   
-  return cp_set;
+  return Rcpp::List::create(
+    Rcpp::Named("cp_set") = cp_set,
+    Rcpp::Named("eq_list") = eq_list
+  );
   
 }
 

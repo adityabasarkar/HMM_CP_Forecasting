@@ -2,6 +2,8 @@ library(ggplot2)
 library(dplyr)
 
 data_dir = "outputs/r_objects"
+plot_dir = "outputs/plots"
+dir.create(plot_dir, recursive = TRUE, showWarnings = FALSE)
 
 mc_rel_curve_cp_set_data = readRDS(file.path(data_dir, "mc_rel_curve_cp_set_data.rds"))
 mc_rel_curve_likelihood_data = readRDS(file.path(data_dir, "mc_rel_curve_likelihood_data.rds"))
@@ -49,7 +51,7 @@ p_cp <- ggplot(
     x = "Target coverage",
     y = "Empirical coverage",
     color = "Test length",
-    title = "Reliability curves – CP sets",
+    title = "Reliability curves â€“ CP sets",
     subtitle = "Monte Carlo Simulations"
   ) +
   coord_equal(xlim = c(0.5, 1), ylim = c(0.5, 1)) +
@@ -71,14 +73,14 @@ p_lik <- ggplot(
     x = "Target coverage",
     y = "Empirical coverage",
     color = "Test length",
-    title = "Reliability curves – Likelihood-based sets",
+    title = "Reliability curves â€“ Likelihood-based sets",
     subtitle = "Monte Carlo Simulations"
   ) +
   coord_equal(xlim = c(0.5, 1), ylim = c(0.5, 1)) +
   theme_minimal()
 
 ########################################
-## 3) Added-zero CP (anchored vs unanchored) – 2-panel plot
+## 3) Added-zero CP (anchored vs unanchored) â€“ 2-panel plot
 ########################################
 
 # p_zero <- ggplot(
@@ -94,7 +96,7 @@ p_lik <- ggplot(
 #     x = "Target coverage",
 #     y = "Empirical coverage",
 #     color = "Test length",
-#     title = "Reliability curves – Added-zero CP (Anchored vs Unanchored)",
+#     title = "Reliability curves â€“ Added-zero CP (Anchored vs Unanchored)",
 #     subtitle = "Monte Carlo Simulations"
 #   ) +
 #   coord_equal(xlim = c(0.5, 1), ylim = c(0.5, 1)) +

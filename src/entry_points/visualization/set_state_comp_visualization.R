@@ -5,6 +5,8 @@ library(stringr)
 library(scales)
 
 data_dir = "outputs/r_objects"
+plot_dir = "outputs/plots"
+dir.create(plot_dir, recursive = TRUE, showWarnings = FALSE)
 
 # ---- Read RDS objects (these now contain results + summary) ----
 cp_obj  <- readRDS(file.path(data_dir, "fatality_cp_compositions.rds"))
@@ -12,11 +14,18 @@ lik_obj <- readRDS(file.path(data_dir, "fatality_likelihood_compositions.rds"))
 naive_obj <- readRDS(file.path(data_dir, "fatality_naive_compositions.rds"))
 weighted_obj <- readRDS(file.path(data_dir, "fatality_weighted_compositions.rds"))
 cmp_obj <- readRDS(file.path(data_dir, "fatality_comp_compositions.rds"))
+cp_obj_12  <- readRDS(file.path(data_dir, "fatality_cp_compositions_12.rds"))
+lik_obj_12 <- readRDS(file.path(data_dir, "fatality_likelihood_compositions_12.rds"))
 
-# This one might still be just matrices (unless you also saved a summary)
 sim_obj <- readRDS(file.path(data_dir, "sim_compare_compositions.rds"))
 
 T1 = 6
+naive_mats <- naive_obj$cp_set_results
+naive_sum <- naive_obj$cp_set_summary
+weighted_mats <- weighted_obj$cp_set_results
+weighted_sum <- weighted_obj$cp_set_summary
+cmp_mats <- cmp_obj$comp_set_results
+cmp_sum <- cmp_obj$comp_set_summary
 
 # ---- Extract matrices + summaries safely ----
 cp_mats  <- if (is.list(cp_obj)  && "cp_set_results" %in% names(cp_obj))  cp_obj$cp_set_results else cp_obj
@@ -25,13 +34,11 @@ cp_sum   <- if (is.list(cp_obj)  && "cp_set_summary" %in% names(cp_obj))  cp_obj
 lik_mats <- if (is.list(lik_obj) && "likelihood_set_results" %in% names(lik_obj)) lik_obj$likelihood_set_results else lik_obj
 lik_sum  <- if (is.list(lik_obj) && "likelihood_set_summary" %in% names(lik_obj)) lik_obj$likelihood_set_summary else NULL
 
-naive_mats <- naive_obj$cp_set_results
-naive_sum <- naive_obj$cp_set_summary
-weighted_mats <- weighted_obj$cp_set_results
-weighted_sum <- weighted_obj$cp_set_summary
+cp_mats_12  <- if (is.list(cp_obj_12)  && "cp_set_results" %in% names(cp_obj_12))  cp_obj_12$cp_set_results else cp_obj_12
+cp_sum_12   <- if (is.list(cp_obj_12)  && "cp_set_summary" %in% names(cp_obj_12))  cp_obj_12$cp_set_summary else NULL
 
-cmp_mats <- if (is.list(cmp_obj) && "comp_set_results" %in% names(cmp_obj)) cmp_obj$comp_set_results else cmp_obj
-cmp_sum  <- if (is.list(cmp_obj) && "comp_set_summary" %in% names(cmp_obj)) cmp_obj$comp_set_summary else NULL
+lik_mats_12 <- if (is.list(lik_obj_12) && "likelihood_set_results" %in% names(lik_obj_12)) lik_obj_12$likelihood_set_results else lik_obj_12
+lik_sum_12  <- if (is.list(lik_obj_12) && "likelihood_set_summary" %in% names(lik_obj_12)) lik_obj_12$likelihood_set_summary else NULL
 
 # sim may have a separate summary file if you saved it; try to read it if present
 sim_sum_path <- file.path(data_dir, "sim_compare_set_summary_table.rds")
@@ -194,58 +201,65 @@ plot_cp_results <- function(df, main_title, subtitle = NULL, summary_df = NULL) 
 # ---- Build long dfs from the matrix lists ----
 df1 <- cp_results_to_df(cp_mats)
 df2 <- cp_results_to_df(lik_mats)
-df3 <- cp_results_to_df(cmp_mats)
-df4 <- cp_results_to_df(sim_mats)
-df5 <- cp_results_to_df(naive_mats)
-df6 <- cp_results_to_df(weighted_mats)
+df3 <- cp_results_to_df(cp_mats_12)
+df4 <- cp_results_to_df(lik_mats_12)
+df5 <- cp_results_to_df(sim_mats)
 
 # ---- Plot with summaries passed in ----
+
+# Fatality Data Visualizations
 p1 <- plot_cp_results(
   df1,
   "State Composition Across Prediction Horizon for CP Sets",
-  "Conflict State Data, alpha = 0.2",
+  "Conflict State Data, T1 = 6, alpha = 0.2",
   summary_df = cp_sum
 )
 
 p2 <- plot_cp_results(
   df2,
   "State Composition Across Prediction Horizon for Likelihood Sets",
-  "Conflict State Data, alpha = 0.2",
+  "Conflict State Data, T1 = 6, alpha = 0.2",
   summary_df = lik_sum
 )
 
 p3 <- plot_cp_results(
   df3,
-  "Edge Case Approach Comparison",
-  "Conflict State Data, Sweden, alpha = 0.2",
-  summary_df = cmp_sum
+  "State Composition Across Prediction Horizon for CP Sets",
+  "Conflict State Data, T1 = 12, alpha = 0.2",
+  summary_df = cp_sum_12
 )
 
 p4 <- plot_cp_results(
   df4,
-  "State Composition Comparison across All Four Methods",
-  "Simulated Data, alpha = 0.2",
-  summary_df = sim_sum
+  "State Composition Across Prediction Horizon for Likelihood Sets",
+  "Conflict State Data, T1 = 12, alpha = 0.2",
+  summary_df = lik_sum_12   # will show if sim_compare_summary.rds exists, otherwise no footer
 )
 
+# Simulated Data Visualizations
 p5 <- plot_cp_results(
   df5,
-  "State Composition Across Prediction Horizon for Naive CP",
-  "Conflict State Data, alpha = 0.2",
-  summary_df = naive_sum
-)
-
-p6 <- plot_cp_results(
-  df6,
-  "State Composition Across Prediction Horizon for Weighted CP",
-  "Conflict State Data, alpha = 0.2",
-  summary_df = weighted_sum
+  "State Composition Comparison across All Four Methods",
+  "Simulated Data, alpha = 0.2",
+  summary_df = sim_sum   # will show if sim_compare_summary.rds exists, otherwise no footer
 )
 
 # Save to PDF
-ggsave("outputs/plots/fatality_cp_compositions.pdf",         p1, width = 12, height = 5, units = "in", device = cairo_pdf)
-ggsave("outputs/plots/fatality_likelihood_compositions.pdf", p2, width = 12, height = 5, units = "in", device = cairo_pdf)
-ggsave("outputs/plots/fataility_comp_compostions.pdf",       p3, width = 12, height = 5, units = "in", device = cairo_pdf)
-ggsave("outputs/plots/sim_compare_compositions.pdf",         p4, width = 12, height = 5, units = "in", device = cairo_pdf)
-ggsave("outputs/plots/fatality_naive_compositions.pdf",      p5, width = 12, height = 5, units = "in", device = cairo_pdf)
-ggsave("outputs/plots/fatality_weighted_compositions.pdf",   p6, width = 12, height = 5, units = "in", device = cairo_pdf)
+ggsave(file.path(plot_dir, "fatality_cp_compositions.pdf"),         p1, width = 12, height = 5, units = "in", device = cairo_pdf)
+ggsave(file.path(plot_dir, "fatality_likelihood_compositions.pdf"), p2, width = 12, height = 5, units = "in", device = cairo_pdf)
+ggsave(file.path(plot_dir, "fatality_cp_compositions_12.pdf"),         p3, width = 12, height = 5, units = "in", device = cairo_pdf)
+ggsave(file.path(plot_dir, "fatality_likelihood_compositions_12.pdf"), p4, width = 12, height = 5, units = "in", device = cairo_pdf)
+ggsave(file.path(plot_dir, "sim_compare_compositions.pdf"),         p5, width = 12, height = 5, units = "in", device = cairo_pdf)
+
+# Plot both baselines with the same state colors and composition format.
+p_naive <- plot_cp_results(cp_results_to_df(naive_mats),
+  "State Composition Across Prediction Horizon for Naive CP",
+  "Conflict State Data, T1 = 6, alpha = 0.2", summary_df = naive_sum)
+p_weighted <- plot_cp_results(cp_results_to_df(weighted_mats),
+  "State Composition Across Prediction Horizon for Weighted CP",
+  "Conflict State Data, T1 = 6, alpha = 0.2", summary_df = weighted_sum)
+p_compare <- plot_cp_results(cp_results_to_df(cmp_mats),
+  "Approach Comparison", "Conflict State Data, Sweden, alpha = 0.2", summary_df = cmp_sum)
+ggsave(file.path(plot_dir, "fatality_naive_compositions.pdf"), p_naive, width = 12, height = 5, units = "in", device = cairo_pdf)
+ggsave(file.path(plot_dir, "fatality_weighted_compositions.pdf"), p_weighted, width = 12, height = 5, units = "in", device = cairo_pdf)
+ggsave(file.path(plot_dir, "fataility_comp_compostions.pdf"), p_compare, width = 12, height = 5, units = "in", device = cairo_pdf)

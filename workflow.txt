@@ -1,18 +1,167 @@
-Program execution order (ensure the working directory is the folder containing the README.md and workflow.txt files):
+HMM CP Forecasting workflow
+===========================
+
+Run every script from the repository root, which is the folder containing
+README.md and workflow.txt.
+
+In RStudio:
+1. Open the repository folder.
+2. Confirm getwd() points to the repository root.
+3. Open each script below and click Source, or run source("path/to/script.R")
+   in the Console.
+
+
+0. One-time setup
+-----------------
+
+Install the packages listed in README.md.
+
+On Windows, install Rtools if Rcpp::sourceCpp() cannot compile:
+  src/cpp_files/hmm_conf_pred_final.cpp
+
+Place the raw data files here:
+  data/raw/markov_data2507.csv
+  data/raw/country_list.csv
+
+These folders are generated locally and ignored by git:
+  outputs/r_objects/
+  outputs/plots/
+
 
 1. Preprocessing
-	a. src/entry_points/preprocessing/preprocess.R
+----------------
 
-2. Simulations
-	a. src/entry_points/simulations_and_analysis/fatality_rel_curves.R
-	b. src/entry_points/simulations_and_analysis/fatality_state_compositions.R
-	c. src/entry_points/simulations_and_analysis/mc_sim_rel_curves.R
-	d. src/entry_points/simulations_and_analysis/mc_sim_state_compositions.R
-	e. src/entry_points/simulations_and_analysis/mc_sim_eff_analysis.R
-	   The baseline settings in these scripts are split_fraction = 0.7 and decay = 0.98.
+Run:
+  src/entry_points/preprocessing/preprocess.R
+
+Reads:
+  data/raw/markov_data2507.csv
+  data/raw/country_list.csv
+
+Writes:
+  outputs/r_objects/preprocessed_data_full.rds
+  outputs/r_objects/preprocessed_data.rds
+
+Do this first. All downstream analysis scripts expect these .rds files.
+
+
+2. Simulations and analysis
+---------------------------
+
+Run these after preprocessing. They can be run one at a time.
+
+Core fatality analyses:
+  src/entry_points/simulations_and_analysis/fatality_rel_curves.R
+  src/entry_points/simulations_and_analysis/fatality_state_compositions.R
+
+Monte Carlo simulation analyses:
+  src/entry_points/simulations_and_analysis/mc_sim_rel_curves.R
+  src/entry_points/simulations_and_analysis/mc_sim_state_compositions.R
+  src/entry_points/simulations_and_analysis/mc_sim_eff_analysis.R
+
+Simulation validation:
+  src/entry_points/simulations_and_analysis/sim_val_analysis.R
+
+These scripts read:
+  outputs/r_objects/preprocessed_data.rds
+  outputs/r_objects/preprocessed_data_full.rds
+
+The baseline settings are split_fraction = 0.7 and decay = 0.98.
+The four methods use matching histories and test paths.
+
+They write generated .rds files under:
+  outputs/r_objects/
+
 
 3. Visualizations
-	a. src/entry_points/visualization/cp_set_state_comp_vis.R
-	b. src/entry_points/visualization/fatality_rel_curve_visualization.R
-	c. src/entry_points/visualization/mcsim_rel_curve_visualization.R
-	d. src/entry_points/visualization/mc_avg_set_size_visualization.R
+-----------------
+
+Run these after the matching analysis outputs exist.
+
+Reliability curves:
+  src/entry_points/visualization/fatality_rel_curve_visualization.R
+  src/entry_points/visualization/mc_sim_rel_curve_visualization.R
+
+State composition figures:
+  src/entry_points/visualization/set_state_comp_visualization.R
+
+Monte Carlo set-size curves:
+  src/entry_points/visualization/mc_avg_set_size_visualization.R
+
+Monte Carlo set-size table:
+  src/entry_points/visualization/avg_set_cardinality_visualization.R
+
+Simulation validation table:
+  src/entry_points/visualization/sim_val_visualization.R
+
+These scripts read generated .rds files from:
+  outputs/r_objects/
+
+They write PDF figures and tables to:
+  outputs/plots/
+
+The visualization scripts create outputs/plots/ automatically if it does not
+already exist.
+
+Expected plots from the standard workflow:
+  outputs/plots/avg_set_size_mc.pdf
+  outputs/plots/avg_set_size_mc_curves.pdf
+  outputs/plots/rel_curve_compare_fatal.pdf
+  outputs/plots/rel_curve_compare_mc.pdf
+  outputs/plots/rel_curve_naive_fatal.pdf
+  outputs/plots/rel_curve_weighted_fatal.pdf
+  outputs/plots/rel_curve_naive_mc.pdf
+  outputs/plots/rel_curve_weighted_mc.pdf
+  outputs/plots/fatality_naive_compositions.pdf
+  outputs/plots/fatality_weighted_compositions.pdf
+  outputs/plots/fatality_cp_compositions.pdf
+  outputs/plots/fatality_cp_compositions_12.pdf
+  outputs/plots/fatality_likelihood_compositions.pdf
+  outputs/plots/fatality_likelihood_compositions_12.pdf
+  outputs/plots/rel_curve_cp_fatal.pdf
+  outputs/plots/rel_curve_cp_mc.pdf
+  outputs/plots/rel_curve_lik_fatal.pdf
+  outputs/plots/rel_curve_lik_mc.pdf
+  outputs/plots/sim_compare_compositions.pdf
+  outputs/plots/sim_val_analysis_table.pdf
+
+
+4. Optional exploratory script
+------------------------------
+
+The standard workflow does not require the exploratory script directly under
+src/. It is retained for the limitation-figure analysis.
+
+Use the maintained entry-point scripts above when reproducing the project.
+
+To regenerate the limitation figures that are present in older local output
+folders, run this after preprocessing:
+  src/exploratory_set_analysis.R
+
+It writes:
+  outputs/plots/limitation_large.pdf
+  outputs/plots/limitation_large_0.pdf
+  outputs/plots/limitation_large_1.pdf
+  outputs/plots/limitation_small.pdf
+  outputs/plots/limitation_small_0.pdf
+  outputs/plots/limitation_small_1.pdf
+
+No other scripts directly under src/ are required.
+
+
+Common failure modes
+--------------------
+
+- File not found in data/raw:
+  Add markov_data2507.csv and country_list.csv to data/raw/.
+
+- Missing .rds in outputs/r_objects:
+  Run preprocessing first, then run the corresponding analysis script before
+  running a visualization script.
+
+- sourceCpp compilation failure:
+  Install Rtools on Windows and restart RStudio before rerunning the script.
+
+- Path errors:
+  Confirm getwd() is the repository root. Do not run scripts with the working
+  directory set to src/ or an entry_points subfolder.

@@ -16,8 +16,8 @@ sourceCpp("src/cpp_files/weighted_cp.cpp")
 data_dir <- "outputs/r_objects"
 data <- readRDS(file.path(data_dir, "preprocessed_data.rds"))
 
-target_coverage_grid <- seq(1.0, 0.5, by = -0.05)
-test_lengths <- list(1, 3, 5)
+target_coverage_grid <- seq(0.5, 1.0, by = 0.05)
+test_lengths <- as.list(1:6)
 calib_len <- 200L
 split_fraction <- 0.7
 decay <- 0.98
@@ -96,7 +96,7 @@ mc_avg_set_sizes <- function() {
         mm_seq <- generate_sequence_mm(P, k, calib_len + T1)
         mm_seq_calib <- mm_seq[1:calib_len]
         
-        cp_set <- get_cp_set(
+        res <- get_cp_set(
           mm_seq_calib,
           as.integer(c()),
           as.integer(T1),
@@ -109,6 +109,7 @@ mc_avg_set_sizes <- function() {
           allowable_transitions,
           TRUE
         )
+        cp_set <- res$cp_set
         cp_sizes[i] <- length(cp_set)
         naive_sizes[i] <- length(get_naive_cp_set(mm_seq_calib, as.integer(T1), k, split_fraction, alpha_val, allowable_transitions))
         weighted_sizes[i] <- length(get_weighted_cp_set(mm_seq_calib, as.integer(T1), k, split_fraction, alpha_val, decay, allowable_transitions))
@@ -120,10 +121,14 @@ mc_avg_set_sizes <- function() {
           states01 <- c(start_state, as.integer(seq))
           from <- states01[-length(states01)] + 1L
           to <- states01[-1] + 1L
-          if (any(allowable_transitions[cbind(from, to)] == 0)) {
-            return(0)
-          }
           prod(transition_probs[cbind(from, to)])
+        }
+        
+        path_allowed <- function(seq) {
+          states01 <- c(start_state, as.integer(seq))
+          from <- states01[-length(states01)] + 1L
+          to <- states01[-1] + 1L
+          all(allowable_transitions[cbind(from, to)] == 1)
         }
         
         probs <- apply(grid_df, 1L, path_prob)
@@ -131,9 +136,15 @@ mc_avg_set_sizes <- function() {
         probs_ord <- probs[ord]
         
         cumul <- cumsum(probs_ord)
-        cutoff_idx <- which(cumul >= cov_target)[1]
+        
+        tol <- 1e-12
+        cutoff_idx <- which(cumul >= cov_target - tol)[1]
         if (is.na(cutoff_idx)) cutoff_idx <- length(probs_ord)
-        lik_sizes[i] <- cutoff_idx
+        
+        likelihood_set <- lapply(seq_len(cutoff_idx), function(j) as.integer(grid_df[ord[j], ]))
+        likelihood_set <- Filter(path_allowed, likelihood_set)
+        
+        lik_sizes[i] <- length(likelihood_set)
       }
       
       results <- results %>%

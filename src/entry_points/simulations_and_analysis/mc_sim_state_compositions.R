@@ -84,7 +84,8 @@ get_cp_set_mat = function() {
   
   #---------------------------------------
   # cp set with no added zero
-  cp_set <- get_cp_set(mm_seq_calib, c(0), T1, 1000, 4, 4, alpha, FALSE, "mm", allowable_transitions)
+  res <- get_cp_set(mm_seq_calib, c(0), T1, 1000, 4, 4, alpha, FALSE, "mm", allowable_transitions)
+  cp_set <- res$cp_set
   
   # prepend T+0 to each sequence
   cp_set <- lapply(cp_set, function(seq) c(start_state, seq))
@@ -122,10 +123,14 @@ get_cp_set_mat = function() {
     states01 <- c(start_state, as.integer(seq))
     from <- states01[-length(states01)] + 1L
     to   <- states01[-1]               + 1L
-    if (any(allowable_transitions[cbind(from, to)] == 0)) {
-      return(0)
-    }
     prod(transition_probs[cbind(from, to)])
+  }
+  
+  path_allowed <- function(seq) {
+    states01 <- c(start_state, as.integer(seq))
+    from <- states01[-length(states01)] + 1L
+    to   <- states01[-1]               + 1L
+    all(allowable_transitions[cbind(from, to)] == 1)
   }
   
   # 1) score all candidate sequences
@@ -138,11 +143,13 @@ get_cp_set_mat = function() {
   # 3) take top few so that cumulative >= 1 - alpha (prefer overshoot)
   target <- 1 - alpha
   cumul <- cumsum(probs_ord)
-  k <- which(cumul >= target)[1]
+  tol <- 1e-12
+  k <- which(cumul >= target - tol)[1]
   if (is.na(k)) k <- length(probs_ord)  # if total < target due to zeros, take all
   
   # selected candidate set, now including T+0
   lik_set <- lapply(seq_len(k), function(j) c(start_state, as.integer(grid_df[ord[j], ])))
+  lik_set <- Filter(function(seq) path_allowed(seq[-1]), lik_set)
   
   ctr_res <- matrix(0, nrow = 4, ncol = T1 + 1)        # set all entries to 0  
   rownames(ctr_res) <- paste("State", 1:4)             # give row-names  
@@ -163,7 +170,7 @@ get_cp_set_mat = function() {
   ctr_prop <- sweep(ctr_res, 2, colSums(ctr_res), "/")
   
   cp_set_results[["Likelihood Set"]] <- ctr_prop
-
+  
   # Both baselines use this same simulated history and held-out future path.
   baseline_sets <- list(
     "Naive CP" = get_naive_cp_set(mm_seq_calib, T1, 4L, split_fraction, alpha, allowable_transitions),
@@ -183,7 +190,7 @@ get_cp_set_mat = function() {
     }
     cp_set_results[[set_name]] <- if (length(baseline_set) > 0L) sweep(ctr_res, 2, colSums(ctr_res), "/") else ctr_res
   }
-  
+
   print("FINISHED")
   
   return(list(
