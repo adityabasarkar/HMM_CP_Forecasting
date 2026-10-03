@@ -70,12 +70,17 @@ Calibration calibrate(const Rcpp::List& history, int pred_len, int k,
   }
 
   std::vector<int> states(n);
-  for (int i = 0; i < n; ++i) states[i] = read_state(history[i], k);
+  for (int i = 0; i < n; ++i) {
+    states[i] = read_state(history[i], k);
+  }
 
   // Only the fitting portion contributes to the state counts.
   // Adding one count per state prevents zero probabilities and infinite path scores.
   std::vector<double> counts(k, 1.0);
-  for (int i = 0; i < fit_len; ++i) ++counts[states[i]];
+  for (int i = 0; i < fit_len; ++i) {
+    ++counts[states[i]];
+  }
+  
   Calibration result;
   result.log_prob.resize(k);
   for (int s = 0; s < k; ++s) {
