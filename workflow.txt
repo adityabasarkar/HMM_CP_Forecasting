@@ -67,6 +67,10 @@ These scripts read:
   outputs/r_objects/preprocessed_data_full.rds
 
 The baseline settings are split_fraction = 0.7 and decay = 0.98.
+Naive and weighted CP default to disjoint calibration windows (overlapping = FALSE).
+Windows start at the beginning of calibration; incomplete final windows are omitted.
+Pass overlapping = TRUE to either baseline's p-value or set function to use sliding windows.
+Weighted CP measures window age in observations, including any unused final observations.
 The four methods use matching histories and test paths.
 
 They write generated .rds files under:

@@ -86,8 +86,8 @@ cp_original_rel_curve <- function() {
         
         p_val <- get_p_val(mm_seq_calib, mm_seq_test, 1000, 4, 4, FALSE, "mm")
         if (p_val > alpha_val) num_included <- num_included + 1L
-        naive_p_val <- get_naive_p_val(mm_seq_calib, mm_seq_test, 4L, split_fraction, allowable_transitions)
-        weighted_p_val <- get_weighted_p_val(mm_seq_calib, mm_seq_test, 4L, split_fraction, decay, allowable_transitions)
+        naive_p_val <- get_naive_p_val(mm_seq_calib, mm_seq_test, 4L, split_fraction, allowable_transitions, overlapping = FALSE)
+        weighted_p_val <- get_weighted_p_val(mm_seq_calib, mm_seq_test, 4L, split_fraction, decay, allowable_transitions, overlapping = FALSE)
         if (naive_p_val > alpha_val) num_included_naive <- num_included_naive + 1L
         if (weighted_p_val > alpha_val) num_included_weighted <- num_included_weighted + 1L
         num_tests <- num_tests + 1L

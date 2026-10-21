@@ -76,6 +76,9 @@ Then run the simulation and fatality analysis scripts. These scripts may take a 
 
 Finally, run the visualization scripts. They expect the corresponding `.rds` files to already exist in `outputs/r_objects/`, create `outputs/plots/` if needed, and write PDFs there.
 
+Naive and weighted CP default to disjoint calibration windows. Their p-value and
+prediction-set functions accept `overlapping = TRUE` to use sliding windows instead.
+
 ## Reproducible Artifacts
 
 The documented workflow regenerates these plots:

@@ -46,9 +46,9 @@ get_cp_set_prop = function(end_id, T1, add_zero, ctr_id, data, coinflip = TRUE, 
     byrow = TRUE
   )
   if (method == "naive") {
-    cp_set <- get_naive_cp_set(mm_seq_calib, T1, 4L, split_fraction, alpha, allowable_transitions)
+    cp_set <- get_naive_cp_set(mm_seq_calib, T1, 4L, split_fraction, alpha, allowable_transitions, overlapping = FALSE)
   } else if (method == "weighted") {
-    cp_set <- get_weighted_cp_set(mm_seq_calib, T1, 4L, split_fraction, alpha, decay, allowable_transitions)
+    cp_set <- get_weighted_cp_set(mm_seq_calib, T1, 4L, split_fraction, alpha, decay, allowable_transitions, overlapping = FALSE)
   } else {
     res <- get_cp_set(mm_seq_calib, c(0), T1, 1000, 4, 4, alpha, add_zero, "mm", allowable_transitions, coinflip)
     cp_set <- res$cp_set

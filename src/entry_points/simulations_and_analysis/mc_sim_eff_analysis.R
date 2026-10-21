@@ -111,8 +111,8 @@ mc_avg_set_sizes <- function() {
         )
         cp_set <- res$cp_set
         cp_sizes[i] <- length(cp_set)
-        naive_sizes[i] <- length(get_naive_cp_set(mm_seq_calib, as.integer(T1), k, split_fraction, alpha_val, allowable_transitions))
-        weighted_sizes[i] <- length(get_weighted_cp_set(mm_seq_calib, as.integer(T1), k, split_fraction, alpha_val, decay, allowable_transitions))
+        naive_sizes[i] <- length(get_naive_cp_set(mm_seq_calib, as.integer(T1), k, split_fraction, alpha_val, allowable_transitions, overlapping = FALSE))
+        weighted_sizes[i] <- length(get_weighted_cp_set(mm_seq_calib, as.integer(T1), k, split_fraction, alpha_val, decay, allowable_transitions, overlapping = FALSE))
         
         transition_probs <- estimate_transition_probabilities(mm_seq_calib, 4)
         start_state <- mm_seq_calib[[length(mm_seq_calib)]][1]

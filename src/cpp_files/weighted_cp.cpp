@@ -64,7 +64,7 @@ double path_score(const std::vector<int>& path,
 }
 
 Calibration calibrate(const Rcpp::List& history, int pred_len, int k,
-                      double split_fraction, double decay) {
+                      double split_fraction, double decay, bool overlapping) {
   const int n = history.size();
   if (!R_finite(split_fraction) || split_fraction <= 0.0 ||
       split_fraction >= 1.0) {
@@ -91,15 +91,16 @@ Calibration calibrate(const Rcpp::List& history, int pred_len, int k,
     result.log_prob[s] = std::log(counts[s] / (fit_len + k));
   }
 
-  // Every consecutive path that fits inside the calibration region is scored once.
-  // The first path starts at fit_len, and the last path ends at n - 1.
-  // Overlapping windows are dependent, so ordinary exchangeable coverage guarantees
-  // should not automatically be claimed for this deliberately naive sequential baseline.
-  const int num_windows = n - fit_len - pred_len + 1;
+  // Start at the first calibration point and score only complete windows.
+  // Disjoint windows advance by pred_len and leave any incomplete tail unused.
+  // Even disjoint windows can be dependent in a time series; ordinary exchangeable
+  // coverage guarantees should not automatically be claimed for this baseline.
+  const int stride = overlapping ? 1 : pred_len;
+  const int num_windows = (n - fit_len - pred_len) / stride + 1;
   result.scores.reserve(num_windows);
   result.weights.reserve(num_windows);
   result.weight_sum = 0.0;
-  for (int start = fit_len; start <= n - pred_len; ++start) {
+  for (int start = fit_len; start <= n - pred_len; start += stride) {
     if (((start - fit_len) & 4095) == 0) Rcpp::checkUserInterrupt();
     std::vector<int> path(pred_len);
     for (int j = 0; j < pred_len; ++j) {
@@ -107,7 +108,8 @@ Calibration calibrate(const Rcpp::List& history, int pred_len, int k,
     }
     result.scores.push_back(path_score(path, result.log_prob));
     // Recency changes only calibration weights; the path and its score match naive CP.
-    // The newest window has age zero and weight one.
+    // Age is measured in observations, including any unused calibration tail.
+    // A window ending at the last history point has age zero and weight one.
     const int end_index = start + pred_len - 1;
     const int age = (n - 1) - end_index;
     // When decay is one, every window has unit weight and this matches naive CP exactly.
@@ -146,9 +148,11 @@ std::vector<int> read_path(const Rcpp::List& path, int k) {
 // [[Rcpp::export]]
 // This function returns the p-value for one observed future path.
 // The test sequence is only the candidate and never contributes to fitting or calibration.
+// Set overlapping = true to use sliding calibration windows instead of disjoint windows.
 double get_weighted_p_val(Rcpp::List& sequence, Rcpp::List& test_sequence,
                        int k, double split_fraction, double decay,
-                       const arma::mat& allowable_transitions) {
+                       const arma::mat& allowable_transitions,
+                       bool overlapping = false) {
   validate_decay(decay);
   std::vector<int> path = read_path(test_sequence, k);
   validate_transitions(allowable_transitions, k);
@@ -156,21 +160,23 @@ double get_weighted_p_val(Rcpp::List& sequence, Rcpp::List& test_sequence,
   const int last_state = read_state(sequence[sequence.size() - 1], k);
   // An infeasible test path is rejected before calibration or score evaluation.
   if (!allowed_path(path, last_state, allowable_transitions)) return 0.0;
-  Calibration cal = calibrate(sequence, path.size(), k, split_fraction, decay);
+  Calibration cal = calibrate(sequence, path.size(), k, split_fraction, decay, overlapping);
   return p_value(path_score(path, cal.log_prob), cal);
 }
 
 // [[Rcpp::export]]
 // This function returns a list of feasible future paths whose p-values exceed alpha.
+// Set overlapping = true to use sliding calibration windows instead of disjoint windows.
 Rcpp::List get_weighted_cp_set(Rcpp::List& sequence, int pred_len, int k,
                             double split_fraction, double alpha, double decay,
-                            const arma::mat& allowable_transitions) {
+                            const arma::mat& allowable_transitions,
+                            bool overlapping = false) {
   validate_decay(decay);
   if (!R_finite(alpha) || alpha < 0.0 || alpha > 1.0) {
     Rcpp::stop("alpha must be in [0,1].");
   }
   validate_transitions(allowable_transitions, k);
-  Calibration cal = calibrate(sequence, pred_len, k, split_fraction, decay);
+  Calibration cal = calibrate(sequence, pred_len, k, split_fraction, decay, overlapping);
   const int last_state = read_state(sequence[sequence.size() - 1], k);
 
   // The path limit prevents enumeration from creating an excessively large result.

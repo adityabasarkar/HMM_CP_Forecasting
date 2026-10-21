@@ -173,8 +173,8 @@ get_cp_set_mat = function() {
   
   # Both baselines use this same simulated history and held-out future path.
   baseline_sets <- list(
-    "Naive CP" = get_naive_cp_set(mm_seq_calib, T1, 4L, split_fraction, alpha, allowable_transitions),
-    "Weighted CP" = get_weighted_cp_set(mm_seq_calib, T1, 4L, split_fraction, alpha, decay, allowable_transitions)
+    "Naive CP" = get_naive_cp_set(mm_seq_calib, T1, 4L, split_fraction, alpha, allowable_transitions, overlapping = FALSE),
+    "Weighted CP" = get_weighted_cp_set(mm_seq_calib, T1, 4L, split_fraction, alpha, decay, allowable_transitions, overlapping = FALSE)
   )
   for (set_name in names(baseline_sets)) {
     baseline_sets[[set_name]] <- lapply(baseline_sets[[set_name]], function(seq) c(start_state, seq))

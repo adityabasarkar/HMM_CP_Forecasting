@@ -263,3 +263,23 @@ p_compare <- plot_cp_results(cp_results_to_df(cmp_mats),
 ggsave(file.path(plot_dir, "fatality_naive_compositions.pdf"), p_naive, width = 12, height = 5, units = "in", device = cairo_pdf)
 ggsave(file.path(plot_dir, "fatality_weighted_compositions.pdf"), p_weighted, width = 12, height = 5, units = "in", device = cairo_pdf)
 ggsave(file.path(plot_dir, "fataility_comp_compostions.pdf"), p_compare, width = 12, height = 5, units = "in", device = cairo_pdf)
+
+# Compare the two baselines using the same histories as the four-method figures.
+baseline_methods <- c("Naive CP", "Weighted CP")
+p_sim_baselines <- plot_cp_results(
+  df5 %>% filter(Country %in% baseline_methods),
+  "State Composition: Naive and Weighted CP",
+  "Simulated Data, alpha = 0.2",
+  summary_df = if (!is.null(sim_sum)) filter(sim_sum, set_type %in% baseline_methods) else NULL
+)
+p_fatality_baselines <- plot_cp_results(
+  cp_results_to_df(cmp_mats[baseline_methods]),
+  "State Composition: Naive and Weighted CP",
+  "Conflict State Data, Sweden, alpha = 0.2",
+  summary_df = filter(cmp_sum, set_type %in% baseline_methods)
+)
+
+ggsave(file.path(plot_dir, "sim_naive_weighted_compositions.pdf"),
+       p_sim_baselines, width = 8, height = 5, units = "in", device = cairo_pdf)
+ggsave(file.path(plot_dir, "fatality_naive_weighted_compositions.pdf"),
+       p_fatality_baselines, width = 8, height = 5, units = "in", device = cairo_pdf)
